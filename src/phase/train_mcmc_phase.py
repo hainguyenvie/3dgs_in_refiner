@@ -127,6 +127,7 @@ PHASE_ARGS = None
 PHASE_REG = 0.0
 PHASE_START = 0
 PHASE_ZERO_MEAN = False
+PHASE_ANCHOR = []
 SHIFT_TOL = None   # [phase-M2] (tol_px, grid_n, patch): per-patch min over sub-pixel shifts of the render
 
 def shift_tolerant_l1(image, gt, tol, n, patch):
@@ -160,6 +161,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     if PHASE_ARGS is not None and PHASE is None:   # [phase] RAFT-free learnable fields for all train views
         PHASE = PhaseWarp(PHASE_ARGS["path"], PHASE_ARGS["scale"], learn=True, lr=PHASE_ARGS["lr"], init_from_fields=False,
                           names=[c.image_name for c in scene.getTrainCameras()], deg=PHASE_ARGS.get("deg", 3))
+        if PHASE_ARGS.get("anchor_every", 0):
+            global PHASE_ANCHOR
+            names_sorted = sorted(c.image_name for c in scene.getTrainCameras())
+            PHASE_ANCHOR = names_sorted[PHASE_ARGS["anchor_every"] // 2::PHASE_ARGS["anchor_every"]]
+            print(f"[phase] {len(PHASE_ANCHOR)} anchor views with zero field (every {PHASE_ARGS['anchor_every']})")
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
         gaussians.restore(model_params, opt)
@@ -263,6 +269,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 gaussians.optimizer.zero_grad(set_to_none = True)
                 if PHASE is not None and PHASE.opt is not None and iteration >= PHASE_START:
                     PHASE.opt.step()
+                    if PHASE_ANCHOR:      # gauge fixing: anchor views keep a zero field (scene stays registered to them)
+                        with torch.no_grad():
+                            for k in PHASE_ANCHOR: PHASE.params[k].zero_()
                     if PHASE_ZERO_MEAN:   # gauge fixing: no common (global) component across views
                         with torch.no_grad():
                             P = torch.stack(list(PHASE.params.values())); m = P.mean(0, keepdim=True)
@@ -374,6 +383,7 @@ if __name__ == "__main__":
     parser.add_argument("--phase_init_zero", action="store_true")   # ignore the measured fields, start at identity
     parser.add_argument("--phase_deg", type=int, default=3)         # polynomial degree of the learnable field (1 = affine)
     parser.add_argument("--phase_zero_mean", action="store_true")   # gauge fixing: subtract the across-view mean field each step
+    parser.add_argument("--phase_anchor_every", type=int, default=0)  # gauge fixing: every N-th train view (sorted) keeps a zero field
     parser.add_argument("--color_affine", action="store_true")      # [M3] per-view learnable 3x4 colour affine on the render
     parser.add_argument("--color_lr", type=float, default=1e-3)
     parser.add_argument("--color_reg", type=float, default=1e-3)
@@ -393,7 +403,7 @@ if __name__ == "__main__":
         PHASE = PhaseWarp(args.view_flow, args.flow_scale, learn=args.learn_phase, lr=args.phase_lr, init_from_fields=not args.phase_init_zero)
         print(f"[phase] view_flow={args.view_flow} scale={args.flow_scale} views={len(PHASE.views)} learn={args.learn_phase}")
     elif args.learn_phase:   # no fields file: build learnable fields once the scene (train view names) is known
-        PHASE_ARGS = {"path": None, "scale": args.flow_scale, "lr": args.phase_lr, "deg": args.phase_deg}
+        PHASE_ARGS = {"path": None, "scale": args.flow_scale, "lr": args.phase_lr, "deg": args.phase_deg, "anchor_every": args.phase_anchor_every}
         print(f"[phase] learnable fields from zero for all train views (no measured fields), lr={args.phase_lr}")
     PHASE_REG = args.phase_reg; PHASE_START = args.phase_start; PHASE_ZERO_MEAN = args.phase_zero_mean
     
