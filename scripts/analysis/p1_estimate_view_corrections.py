@@ -48,8 +48,8 @@ def fuse_flows(flows, oks):
     big = torch.where(M[:, None, None] > 0, F_, torch.full_like(F_, float("nan")))
     med = torch.nanmedian(big, dim=0).values         # 1,2,H,W
     n = M.sum(0)
-    agree = ((F_ - med).norm(dim=2)[:, 0] < 0.5).float() * M
-    ok = (n >= 1) & (agree.sum(0) >= torch.clamp(n, max=2))
+    agree = ((F_ - med).norm(dim=2)[:, 0] < 0.3).float() * M
+    ok = (n >= 2) & (agree.sum(0) >= 2)             # at least two sources agree within 0.3 px
     return med, ok
 
 
@@ -72,7 +72,7 @@ def fit_view(flow, ok, depth, fx, fy, cx, cy, use_k1, iters=8, step=3):
     for _ in range(iters):
         Aw = A * w[:, None]; theta = torch.linalg.lstsq(Aw, b * w).solution
         r = (A @ theta - b).view(2, -1).norm(dim=0); r = torch.cat([r, r])
-        c = 0.5; w = torch.where(r < c, torch.ones_like(r), c / r).sqrt()
+        c = 0.25; w = torch.where(r < c, torch.ones_like(r), c / r).sqrt()
     resid = (A @ theta - b).view(2, -1).norm(dim=0)
     rms_in = b.view(2, -1).norm(dim=0).pow(2).mean().sqrt()
     return theta.cpu().numpy(), float(rms_in), float(resid.pow(2).mean().sqrt()), int(m.sum())
@@ -135,14 +135,18 @@ def main():
         theta, rms_in, rms_out, npx = fit_view(flow, ok, depth, fx, fy, cx, cy, a.k1)
         dw, dt = theta[:3], theta[3:6]
         shift_px = float(np.linalg.norm([fx * dw[1], fy * dw[0]]))   # dominant image shift from rotation
+        # per-view gate: a failed measurement (RAFT breakdown, too few pixels) must not move the camera
+        gated = not (npx >= 5000 and rms_in < 1.0 and shift_px < 0.6 and rms_out < rms_in)
         stats.append({"name": name, "px": npx, "flow_rms_px": rms_in, "resid_rms_px": rms_out, "rot_shift_px": shift_px,
-                      "dt_norm": float(np.linalg.norm(dt)), "k1": float(theta[6]) if a.k1 else None})
-        corr[name] = (dw, dt)
+                      "dt_norm": float(np.linalg.norm(dt)), "k1": float(theta[6]) if a.k1 else None, "gated": gated})
+        if not gated:
+            corr[name] = (dw, dt)
         print(f"{name} px={npx} flow_rms={rms_in:.3f} -> resid={rms_out:.3f} rot_shift={shift_px:.3f}px |dt|={np.linalg.norm(dt):.2e}", flush=True)
     tag = f"{scene}_{a.signal}{'_k1' if a.k1 else ''}"
-    summ = {k: float(np.mean([s[k] for s in stats])) for k in ("flow_rms_px", "resid_rms_px", "rot_shift_px", "dt_norm")}
-    summ["explained_var"] = 1 - np.mean([s["resid_rms_px"] ** 2 for s in stats]) / np.mean([s["flow_rms_px"] ** 2 for s in stats])
-    summ["views"] = len(stats)
+    used = [s for s in stats if not s["gated"]]
+    summ = {k: float(np.median([s[k] for s in stats])) for k in ("flow_rms_px", "resid_rms_px", "rot_shift_px", "dt_norm")}
+    summ["explained_var_used"] = 1 - np.mean([s["resid_rms_px"] ** 2 for s in used]) / np.mean([s["flow_rms_px"] ** 2 for s in used]) if used else None
+    summ["views"] = len(stats); summ["views_corrected"] = len(used)
     out = ROOT / "reports" / "p1"; out.mkdir(exist_ok=True)
     json.dump({"summary": summ, "views": stats}, open(out / f"{tag}.json", "w"), indent=1)
     print("SUMMARY", tag, json.dumps(summ))
