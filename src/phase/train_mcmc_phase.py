@@ -279,7 +279,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 if PHASE is not None and PHASE.opt is not None:
                     PHASE.opt.zero_grad(set_to_none=True)
                 if COLOR is not None:
-                    if iteration >= COLOR_START: COLOR.opt.step()
+                    if iteration >= COLOR_START:
+                        COLOR.opt.step()
+                        with torch.no_grad():   # colour gauge fixing: mean affine over views = identity
+                            COLOR.A.sub_(COLOR.A.mean(0, keepdim=True) - torch.eye(3, device="cuda")[None]); COLOR.b.sub_(COLOR.b.mean(0, keepdim=True))
                     COLOR.opt.zero_grad(set_to_none=True)
 
                 L = build_scaling_rotation(gaussians.get_scaling, gaussians.get_rotation)
