@@ -83,3 +83,26 @@ Chỉ khi P1/P2 có tín hiệu mới ghép M1+M2(+M3) thành method, chạy đ�
 1 seed cho mọi run; thế giới nhân tạo chỉ chứa nội dung Gaussian biểu diễn được (trần 34 dB là trần lý tưởng); RAFT
 có sàn ~0.1–0.2 px nên các số lệch nhỏ là ước lượng dưới; E7 chỉ tiêm nhiễu xoay (affine), trong khi lệch thật phần
 lớn phi affine (E3) — P3 sẽ tách. Pose test cũng có lỗi (E1: 0.1–0.4 px) nhưng protocol chuẩn không cho sửa.
+
+## 8. Trạng thái method sau ngày 2 (29/09)
+
+**Method v1 = MCMC + trường pha học được theo view** (`src/phase/train_mcmc_phase.py`, cờ `m1s`: poly bậc 3, reg 1e-3,
+zero-mean gauge, bắt đầu 1k). Inference một stage, không ảnh nguồn.
+
+| Bằng chứng | Số |
+|---|---|
+| P6 (reg 1e-4, 13 scene) vs MCMC | outdoor +0.01…+0.13, DB +0.22 (playroom +0.46), indoor −0.2…−0.6 (`reports/p6_m1.md`) |
+| Sweep reg | 1e-3: trường học = lệch đo RAFT (0.164 vs 0.151 px), counter trung tính, bicycle +0.10 |
+| **Phase-aligned PSNR** (bỏ lệch pha trơn ở test) | ours − MCMC: bicycle **+0.46**, garden **+0.38**, playroom **+0.65**, bonsai **+0.20** (run có PSNR chuẩn −0.59!) |
+| Nguyên nhân "hại indoor" | **gauge drift**: các trường theo view dịch chung cả cảnh so với camera test cố định. Zero-mean giảm (bonsai −0.59 → −0.12); neo view đang thử |
+| MCMC thuần vs GADA final | thắng 5/5 outdoor (garden +0.45, stump +0.36) — SOTA image-based thua render thường ở outdoor |
+| M3 (affine màu theo view) | T&T train +0.20 với nội suy theo pose (ngân sách N3 +0.66); chưa ghép |
+| Tensara post-hoc | bicycle −0.65, garden −0.90 |
+
+**Câu chuyện paper (dự kiến):** (1) blur của 3DGS là inconsistency dưới pixel, không phải năng lực (E7); (2) IBR không
+chuyển được HF ở outdoor vì trần resample (E8/E10), gain của họ là LF (E4); (3) sửa inconsistency lúc train bằng trường
+pha học được → model sắc hơn, thắng SOTA ở outdoor với một stage; (4) metric chuẩn đo thấp cải thiện vì test view cũng
+lệch pha → đề xuất phase-aligned PSNR làm metric chẩn đoán kèm theo.
+
+**Việc còn lại:** P7 (13 scene, `m1s`) đang chạy; chọn gauge (zero-mean vs neo); ghép M3; 2–3 seed cho bảng chính;
+đo chi phí (train time, không đổi ở inference); viết.
