@@ -23,7 +23,7 @@ mạng nhìn thấy nó (không phải vì depth).
 | E1c | Căn theo flow / sửa màu cứu được không? | Flow: không (−0.2…+0.5); màu: +0.2…1.4 dB; vẫn kém raw | Không phải lệch trơn, không phải màu |
 | **E8** | Warp trong thế giới nhân tạo tĩnh, depth "đúng" | Vẫn chỉ **27.5 / 29.6 dB** (raw 39 / 44); lỗi 47–59% HF; flow không giúp | Sàn lỗi **nội tại** của warp |
 | E9 | Sàn đó nằm đâu? | Đuôi: 3% px nhiều lớp chịu 23% lỗi (×20); nhưng 50% px depth phẳng vẫn ~29 dB | Depth mơ hồ chỉ là đuôi |
-| **E10** | Chỉ resample bilinear nửa pixel tốn bao nhiêu? | **28.65 / 28.48 dB**, 66–69% HF | **Sàn warp = sàn resample** |
+| **E10** | Chỉ resample nửa pixel tốn bao nhiêu? | bilinear **28.65 / 28.48 / 36.0 dB** (bicycle/garden/bonsai), 66–69% HF; bicubic không hơn | **Sàn warp (27.5 / 29.6 / 35.8) = sàn lấy mẫu** ở cả 3 scene |
 | D1 | Nhánh residual làm base "lười"? (H2) MCMC densify cứu base? (H1) | noagg ≈ ibgs raw (±0.05) ở 4 scene; detach: +0.3/0/−0.4. mcmc_noagg train +0.9 raw nhưng kém MCMC thuần −0.9 | H2 **bác bỏ**; H1: densify giúp, loss hình học IBGS hại |
 
 ## 3. Vì sao đây là câu chuyện có thể publish

@@ -28,5 +28,101 @@
    0.003
   ],
   "views": 24
+ },
+ "bicycle_0.5_0.5_bilinear": {
+  "scene": "bicycle",
+  "shift": [
+   0.5,
+   0.5
+  ],
+  "mode": "bilinear",
+  "psnr_resample_floor": 28.650856770121624,
+  "band_share_err": [
+   0.663,
+   0.307,
+   0.027,
+   0.002
+  ],
+  "views": 25
+ },
+ "bicycle_0.5_0.5_bicubic": {
+  "scene": "bicycle",
+  "shift": [
+   0.5,
+   0.5
+  ],
+  "mode": "bicubic",
+  "psnr_resample_floor": 28.161330305670063,
+  "band_share_err": [
+   0.674,
+   0.299,
+   0.025,
+   0.002
+  ],
+  "views": 25
+ },
+ "garden_0.5_0.5_bilinear": {
+  "scene": "garden",
+  "shift": [
+   0.5,
+   0.5
+  ],
+  "mode": "bilinear",
+  "psnr_resample_floor": 28.483991009977522,
+  "band_share_err": [
+   0.688,
+   0.288,
+   0.022,
+   0.003
+  ],
+  "views": 24
+ },
+ "garden_0.5_0.5_bicubic": {
+  "scene": "garden",
+  "shift": [
+   0.5,
+   0.5
+  ],
+  "mode": "bicubic",
+  "psnr_resample_floor": 27.97350929732898,
+  "band_share_err": [
+   0.698,
+   0.28,
+   0.02,
+   0.002
+  ],
+  "views": 24
+ },
+ "bonsai_0.5_0.5_bilinear": {
+  "scene": "bonsai",
+  "shift": [
+   0.5,
+   0.5
+  ],
+  "mode": "bilinear",
+  "psnr_resample_floor": 36.00582866205836,
+  "band_share_err": [
+   0.275,
+   0.582,
+   0.122,
+   0.021
+  ],
+  "views": 37
+ },
+ "bonsai_0.5_0.5_bicubic": {
+  "scene": "bonsai",
+  "shift": [
+   0.5,
+   0.5
+  ],
+  "mode": "bicubic",
+  "psnr_resample_floor": 35.68821842511649,
+  "band_share_err": [
+   0.291,
+   0.575,
+   0.114,
+   0.019
+  ],
+  "views": 37
  }
 }
