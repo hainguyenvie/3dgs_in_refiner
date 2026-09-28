@@ -235,7 +235,7 @@ def render_set(model_path, name, iteration, views, scene, gaussians, pipeline, a
         normal = (normal.detach().cpu()+1)/2
         normal = normal.detach().cpu().numpy()
         normal = (normal * 255).clip(0, 255).astype(np.uint8)
-        if name == 'test' and getattr(args, "dump_warps", False):   # [irgs] per-source warps + validity masks
+        if getattr(args, "dump_warps", False):   # [irgs] per-source warps + validity masks + depth (test AND train views)
             wd, md = os.path.join(model_path, name, f"ours_{iteration}", "warps"), os.path.join(model_path, name, f"ours_{iteration}", "warpmask")
             makedirs(wd, exist_ok=True); makedirs(md, exist_ok=True)
             _w = out["warped_image"].view(-1, 3, H, W); _f = out["cam_feat"].view(-1, 4, H, W)
