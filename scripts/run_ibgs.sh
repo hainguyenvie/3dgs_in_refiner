@@ -60,7 +60,7 @@ vram_sampler & VS=$!
 trap 'kill $VS 2>/dev/null || true' EXIT
 
 [ -f "$OUT/point_cloud/iteration_$IT/point_cloud.ply" ] || stage train $PY -u train.py -s "$SRC" -m "$OUT" $FLAGS $EXTRA
-[ -f "$OUT/result_fps_mem.json" ] || stage render $PY -u render.py -s "$SRC" -m "$OUT" $FLAGS --skip_train
+[ -f "$OUT/result_fps_mem.json" ] || stage render $PY -u render.py -s "$SRC" -m "$OUT" $FLAGS --skip_train --iteration $IT
 [ -f "$OUT/results_renders_aggregate.json" ] || stage metrics $PY -u metrics.py -m "$OUT"
 cat "$OUT/stages.txt" "$OUT/results_renders.json" "$OUT/results_renders_aggregate.json" "$OUT/result_fps_mem.json"
 echo JOB_DONE

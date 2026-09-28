@@ -12,7 +12,7 @@
 #     IBGS only uses pytorch3d.transforms.quaternion_to_matrix (pure torch).
 #   - opencv-python -> opencv-python-headless (same cv2, no libGL on the server).
 # Host nvcc is 13.0 and host gcc is 13; torch cu121 needs nvcc 12.1, which rejects gcc 13.
-# So nvcc 12.1 + gcc 12 are installed into .cuda121 from conda and used for every build.
+# So nvcc 12.1 + gcc 11 are installed into .cuda121 from conda and used for every build.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -29,9 +29,9 @@ TP="$ROOT/third_party"
 
 # ---- 1. toolchain: nvcc 12.1 + gcc/g++ 12 ------------------------------------
 if [ ! -x "$C/bin/nvcc" ]; then
-  log "installing CUDA 12.1.1 nvcc + gcc 12 into $C"
+  log "installing CUDA 12.1.1 nvcc + gcc 11 into $C"
   "$MM" create -y -p "$C" -c nvidia/label/cuda-12.1.1 -c conda-forge \
-      cuda-nvcc cuda-cudart-dev cuda-cccl "gxx_linux-64=12" "gcc_linux-64=12"
+      cuda-nvcc cuda-cudart-dev cuda-cccl "gxx_linux-64=11" "gcc_linux-64=11"
 fi
 # torch 2.1.2+cu121 from the pytorch index is the "fat" wheel (CUDA libs bundled, no nvidia-* deps),
 # so the cuBLAS/cuSPARSE/cuSOLVER/cuRAND headers that ATen/cuda/CUDAContext.h includes must come from conda.
@@ -40,6 +40,12 @@ if [ ! -f "$C/include/cublas_v2.h" ] && [ ! -f "$C/targets/x86_64-linux/include/
   "$MM" install -y -p "$C" -c nvidia/label/cuda-12.1.1 -c conda-forge \
       libcublas-dev libcusparse-dev libcusolver-dev libcurand-dev cuda-profiler-api
 fi
+# gcc 11 (not 12): nvcc 12.1 officially supports gcc <= 12.2, and gcc 12.4 breaks on pybind11's cast.h
+# inside .cu files ("expected template-name before '<'"). gcc 11 is the known-good pair for torch 2.1.
+"$C/bin/x86_64-conda-linux-gnu-g++" --version | grep -q " 11\." || \
+  "$MM" install -y -p "$C" -c conda-forge "gxx_linux-64=11" "gcc_linux-64=11"
+# Python 3.8's headers include <crypt.h>; the conda gcc sysroot (glibc 2.17) lacks it -> libxcrypt.
+[ -f "$C/include/crypt.h" ] || "$MM" install -y -p "$C" -c conda-forge libxcrypt
 "$C/bin/nvcc" --version | tail -2
 export CC="$C/bin/x86_64-conda-linux-gnu-gcc" CXX="$C/bin/x86_64-conda-linux-gnu-g++"
 "$CXX" --version | head -1
@@ -93,7 +99,7 @@ if [[ "$WHAT" == ibgs || "$WHAT" == all ]]; then
       tensorboard tqdm iopath
   build "$V" diff_plane_rasterization "$TP/ibgs/submodules/diff-plane-rasterization"
   build "$V" simple_knn._C "$TP/ibgs/submodules/simple-knn"
-  build "$V" pytorch3d._C "git+https://github.com/facebookresearch/pytorch3d.git@v0.7.8"
+  build "$V" pytorch3d._C "git+https://github.com/facebookresearch/pytorch3d.git@V0.7.8"
   smoke "$V" diff_plane_rasterization simple_knn._C pytorch3d.transforms open3d trimesh lpips
   log "IBGS_ENV_DONE"
 fi

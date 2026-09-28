@@ -13,7 +13,7 @@ Mục đích: kiểm tra triển khai. Mỗi baseline chạy **đúng** split/re
 
 ## 2. Môi trường (chung, sai lệch có chủ đích)
 
-python 3.8.20, torch 2.1.2+cu121, torchvision 0.16.2, numpy 1.24.4, nvcc 12.1.105 + gcc 12.4 (conda),
+python 3.8.20, torch 2.1.2+cu121, torchvision 0.16.2, numpy 1.24.4, nvcc 12.1.105 + gcc 11 (conda),
 `TORCH_CUDA_ARCH_LIST=9.0`, GPU H200. Script: `scripts/setup_baseline_envs.sh`.
 
 - IBGS: đúng stack tác giả khai (torch 2.1.2/cu121; python 3.8). pytorch3d ghim v0.7.8 (HEAD không build với torch 2.1).
@@ -57,6 +57,17 @@ mặc định `scale_reg 0.01, opacity_reg 0.01` (DB drjohnson 0.001 theo config
 ⚠ Mặc định repo là `init_type random`; ta so với cột **Ours (SfM)** của paper. Paper không có flowers/treehill
 (không có config `cap_max`) → Protocol R của MCMC = 7 scene Mip360 + T&T + DB. Paper báo trung bình 3 lần chạy.
 
+### Kiểm chứng dữ liệu/độ phân giải (28/09, từ ảnh GT GADA công bố — cùng codebase IBGS)
+
+- IBGS/GADA lấy kích thước gốc từ **intrinsics COLMAP**, không từ file ảnh (`loadCam`: `round(cam.width / r)`).
+  `tandt_db` có COLMAP 1959×1090 (train), 1957×1091 (truck) nhưng ảnh 980×545 / 979×546 → `-r 2` cho
+  **980×545 / 978×546**. GT T&T của GADA trùng **từng pixel** với ảnh `tandt_db` (train) → cùng dữ liệu với ta;
+  độ phân giải đánh giá T&T tương đương 3DGS (truck lệch 1 px do resample 979→978).
+- Mip360: GT 1236×822 (bicycle) = `round(4946/4)` từ `images/` full-res; `images_4` của 3DGS là 1237×822 → hai
+  protocol **khác nhau về ảnh GT** (resize trong code vs JPEG downsample sẵn). Protocol C phải chọn một.
+- GADA công bố renders + GT + `results_renders*.json` cho Mip360 (9, tên `flower`), T&T (2), Shiny (3);
+  **không có Deep Blending**. Lưu ở `outputs/published/gada/`.
+
 ## 4. Số mục tiêu (paper)
 
 ### IBGS (NeurIPS'25 Tab. 1–2; chỉ có trung bình dataset)
@@ -92,6 +103,20 @@ Train (RTX 4090): 44 / 21 / 39 phút (Mip360 / T&T / DB). VRAM inference: 6.12 /
 
 ⚠ LPIPS của MCMC cao bất thường ở DB (0.32 vs 3DGS 0.24): khả năng khác cài đặt LPIPS (paper nói có
 "correct LPIPS as reported by [4]"). Khi so, đọc LPIPS theo script của chính repo.
+
+### Tham chiếu phụ: GADA (arXiv 2607.00595, code chưa phát hành)
+
+| | Mip360 (9) PSNR/SSIM/LPIPS | T&T | DB |
+|---|---|---|---|
+| GADA paper Tab. 1 — Ours | 28.62 / 0.840 / 0.179 | 24.92 / 0.871 / 0.144 | 30.22 / 0.911 / 0.235 |
+| GADA JSON công bố — final (ta tính trung bình) | 28.63 / 0.841 / 0.178 | 24.93 / 0.871 / 0.145 | — |
+| GADA JSON công bố — **raw** | 27.33 / 0.826 / 0.207 | 23.13 / 0.843 / 0.192 | — |
+| GADA chạy lại **IBGS** (Tab. 1) | 28.29 / 0.831 / 0.191 | 24.75 / 0.861 / 0.154 | 29.94 / 0.899 / 0.237 |
+| GADA chạy lại **3DGS-MCMC** (9 scene!) | 27.98 / 0.835 / 0.224 | 24.29 / 0.860 / 0.190 | 29.67 / 0.895 / 0.320 |
+
+→ Một lần tái hiện IBGS độc lập đã lệch paper −0.04 / −0.09 / −0.18 dB: dùng làm mốc dung sai thực tế.
+→ Raw của GADA (27.33) thấp hơn MCMC (27.98): gain nằm ở nhánh warp, không ở Gaussian.
+Shiny (final) GADA: 35.57 trung bình 3 scene. Chấm lại ảnh GADA bằng scorer của ta trước khi dùng các số này.
 
 ## 5. Gate chấp nhận một lần tái hiện
 

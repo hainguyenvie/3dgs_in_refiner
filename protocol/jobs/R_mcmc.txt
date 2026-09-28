@@ -1,0 +1,11 @@
+mcmc bicycle r1
+mcmc garden r1
+mcmc stump r1
+mcmc bonsai r1
+mcmc counter r1
+mcmc kitchen r1
+mcmc room r1
+mcmc train r1
+mcmc truck r1
+mcmc drjohnson r1
+mcmc playroom r1

@@ -1,0 +1,13 @@
+3dgs bicycle r1
+3dgs flowers r1
+3dgs garden r1
+3dgs stump r1
+3dgs treehill r1
+3dgs bonsai r1
+3dgs counter r1
+3dgs kitchen r1
+3dgs room r1
+3dgs train r1
+3dgs truck r1
+3dgs drjohnson r1
+3dgs playroom r1
