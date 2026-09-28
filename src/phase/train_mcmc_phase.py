@@ -377,4 +377,8 @@ if __name__ == "__main__":
             mag = [float(((PHASE.basis(64, 96) @ a).norm(dim=-1)).mean()) for a in A]   # mean field magnitude per view (px, coarse grid)
             print(f"[phase] learned field magnitude px: median {float(torch.tensor(mag).median()):.3f} max {max(mag):.3f}")
             torch.save({k: v.detach().cpu() for k, v in PHASE.params.items()}, os.path.join(args.model_path, "phase_fields.pt"))
+            with open(os.path.join(args.model_path, "phase_summary.json"), "w") as f:   # survives --quiet (stdout is silenced)
+                json.dump({"views": len(PHASE.params), "warped": PHASE.hits, "misses": PHASE.misses, "field_px_median": float(torch.tensor(mag).median()),
+                           "field_px_max": max(mag), "lr": args.phase_lr, "reg": args.phase_reg, "start": args.phase_start,
+                           "shift_tol": SHIFT_TOL, "flow_scale": args.flow_scale}, f, indent=1)
     print("\nTraining complete.")
