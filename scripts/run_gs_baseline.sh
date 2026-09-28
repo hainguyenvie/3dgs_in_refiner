@@ -23,7 +23,8 @@ case "$METHOD" in
   mcmc)
     REPO=$ROOT/third_party/3dgs-mcmc; PY=$ROOT/.venv_mcmc/bin/python
     CFG=$REPO/configs/$SCENE.json
-    [ -f "$CFG" ] || { echo "no author config (cap_max) for $SCENE — not part of MCMC Protocol R"; exit 3; }
+    [ -f "$CFG" ] || CFG=$ROOT/configs/mcmc/$SCENE.json     # our config for scenes the repo lacks (flowers, treehill)
+    [ -f "$CFG" ] || { echo "no config (cap_max) for $SCENE"; exit 3; }
     RES=$($PY -c "import json;print(json.load(open('$CFG'))['resolution'])")
     TRAIN_FLAGS="--config $CFG --eval --init_type sfm --quiet"
     RENDER_FLAGS="--quiet --eval --skip_train -r $RES" ;;
