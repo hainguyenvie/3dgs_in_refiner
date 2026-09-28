@@ -141,3 +141,9 @@ Reading: which test views are misaligned, and by how much, is the same for every
 
 ### kitchen m1n + per-view cap 0.5 px (`kitchen_p6_m1n_cap`) — 2026-09-29
 MCMC 32.21 | m1n −0.28 | m1sh [sh] −0.30 | m1w [sh] −0.18 | **m1n_cap 32.17 (−0.04, within run noise)**. Field median 0.063 px, max clipped at 0.49 (the mis-posed view DSCF0931 wanted >0.5 px). A single view with a large learned field hurts the test metric on kitchen; capping the per-view field is a cheap robustness guard. Launched `kitchen_p6_m1wc` (= m1w + cap 0.5) on card 3 to see whether the shared field then lifts kitchen above baseline.
+
+### m1w (9 remaining scenes) and kitchen m1wc — trickle-in, 2026-09-29
+| scene | MCMC | m1n | m1w std | m1w [sh] | note |
+|---|---|---|---|---|---|
+| treehill | 23.33 | +0.02 | −0.54 | **+0.12** | shared field needed (as flowers) |
+| kitchen (m1wc = m1w + cap 0.5) | 32.21 | −0.28 | −1.15 | −0.24 | cap does not rescue the m1w recipe (reg 1e-4 + shared); m1n_cap (reg 1e-3) −0.03 |
