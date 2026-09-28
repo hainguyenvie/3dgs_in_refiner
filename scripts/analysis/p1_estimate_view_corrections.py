@@ -80,10 +80,11 @@ def fit_view(flow, ok, depth, fx, fy, cx, cy, use_k1, iters=8, step=3):
 
 def apply_pose(q, t, dw, dt):
     """new camera = small motion applied in the camera frame: X_c' = R(dw) X_c + dt  =>  R' = R(dw) R,  t' = R(dw) t + dt.
-    The fitted flow says GT content sits at p + u relative to the model; moving the camera by (dw,dt) moves the
-    rendered content by +J[dw;dt], so applying (dw,dt) makes the render follow the GT."""
-    R = qvec2rot(q); dR = rot_exp(dw)
-    return rot2qvec(dR @ R), dR @ t + dt
+    SIGN: the measured flow u is GT -> render (gt(p) ~ render(p + u)), i.e. the rendered content is displaced by +u
+    relative to the photo, and J[dw;dt] is the displacement of rendered content under the motion. To bring the render
+    onto the photo we must move it by -u, so the motion to apply is -theta (first P1 run applied +theta: -0.41 dB)."""
+    R = qvec2rot(q); dR = rot_exp(-dw)
+    return rot2qvec(dR @ R), dR @ t - dt
 
 
 def rot_exp(w):
@@ -138,11 +139,12 @@ def main():
         # per-view gate: a failed measurement (RAFT breakdown, too few pixels) must not move the camera
         gated = not (npx >= 5000 and rms_in < 1.0 and shift_px < 0.6 and rms_out < rms_in)
         stats.append({"name": name, "px": npx, "flow_rms_px": rms_in, "resid_rms_px": rms_out, "rot_shift_px": shift_px,
-                      "dt_norm": float(np.linalg.norm(dt)), "k1": float(theta[6]) if a.k1 else None, "gated": gated})
+                      "dt_norm": float(np.linalg.norm(dt)), "k1": float(theta[6]) if a.k1 else None, "gated": gated,
+                      "theta": theta.tolist()})
         if not gated:
             corr[name] = (dw, dt)
         print(f"{name} px={npx} flow_rms={rms_in:.3f} -> resid={rms_out:.3f} rot_shift={shift_px:.3f}px |dt|={np.linalg.norm(dt):.2e}", flush=True)
-    tag = f"{scene}_{a.signal}{'_k1' if a.k1 else ''}"
+    tag = f"{scene}_{a.signal}{'_k1' if a.k1 else ''}{os.environ.get('P1_SUFFIX', '')}"
     used = [s for s in stats if not s["gated"]]
     summ = {k: float(np.median([s[k] for s in stats])) for k in ("flow_rms_px", "resid_rms_px", "rot_shift_px", "dt_norm")}
     summ["explained_var_used"] = 1 - np.mean([s["resid_rms_px"] ** 2 for s in used]) / np.mean([s["flow_rms_px"] ** 2 for s in used]) if used else None

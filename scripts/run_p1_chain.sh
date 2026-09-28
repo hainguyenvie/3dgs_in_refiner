@@ -9,7 +9,7 @@ for s in "$@"; do
   for sig in warp render; do
     .venv_ibgs/bin/python scripts/analysis/p1_estimate_view_corrections.py $s --signal $sig > logs/p1/est_${s}_${sig}.log 2>&1
     grep SUMMARY logs/p1/est_${s}_${sig}.log || { echo "estimation failed: $s $sig"; continue; }
-    TAGS+=("${s}_${sig}")
+    TAGS+=("${s}_${sig}${P1_SUFFIX:-}")
   done
 done
 i=0

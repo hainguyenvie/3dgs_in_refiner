@@ -59,7 +59,7 @@ def poly_fit(flow, ok, deg=3, step=4):
 
 
 def analyse(scene, split, model, stride):
-    d = ROOT / "outputs" / "protocolR" / "mcmc" / f"{scene}_r1" / split / "ours_30000"
+    d = (Path(os.environ["E3_MODEL"].format(scene=scene)) if os.environ.get("E3_MODEL") else ROOT / "outputs" / "protocolR" / "mcmc" / f"{scene}_r1") / split / "ours_30000"
     if not (d / "renders").is_dir() or not os.listdir(d / "renders"):
         return None
     names = sorted(os.listdir(d / "gt"))[::stride]
@@ -97,7 +97,7 @@ def main():
             if r:
                 out[f"{s}/{split}"] = r
                 print(s, split, {k: round(v, 3) for k, v in r["summary"].items()}, flush=True)
-    json.dump(out, open(ROOT / "reports" / "e3_view_consistency_poly.json", "w"), indent=1)
+    json.dump(out, open(ROOT / "reports" / f"e3_view_consistency_poly{os.environ.get('E3_TAG','')}.json", "w"), indent=1)
     md = ["# E3 — view consistency (MCMC Protocol R, RAFT GT->render)", "",
           "| scene | split | n | PSNR | +align affine | +align poly3 | +align full | flow rms px | affine rms px | "
           "affine expl. var | poly3 expl. var | poly3 resid rms px | transl. px | HF share err |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
@@ -107,7 +107,7 @@ def main():
                   f"{s['psnr_align_poly3']-s['psnr']:+.2f} | {s['psnr_align_full']-s['psnr']:+.2f} | {s['flow_rms']:.3f} | {s['affine_rms']:.3f} | "
                   f"{s['affine_explained_var']*100:.0f}% | {s['poly3_explained_var']*100:.0f}% | {s['poly3_resid_rms']:.3f} | "
                   f"{s['translation_px']:.3f} | {s['hf_share_err']*100:.0f}% |")
-    (ROOT / "reports" / "e3_view_consistency_poly.md").write_text("\n".join(md) + "\n")
+    (ROOT / "reports" / f"e3_view_consistency_poly{os.environ.get('E3_TAG','')}.md").write_text("\n".join(md) + "\n")
     print("\n".join(md))
 
 
