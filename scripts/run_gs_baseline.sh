@@ -29,6 +29,8 @@ case "$METHOD" in
     RENDER_FLAGS="--quiet --eval --skip_train -r $RES" ;;
   *) echo "method must be 3dgs|mcmc"; exit 2 ;;
 esac
+# EXTRA_TRAIN: extra train flags for a DIAGNOSTIC run (always give it its own tag; never overwrite r1)
+[ -n "${EXTRA_TRAIN:-}" ] && TRAIN_FLAGS="$TRAIN_FLAGS $EXTRA_TRAIN"
 IT=30000
 if [ "${SMOKE:-0}" = 1 ]; then IT=1000; TRAIN_FLAGS="$TRAIN_FLAGS --iterations 1000 --save_iterations 1000 --densify_until_iter 800"; fi
 OUT="$ROOT/outputs/protocolR/$METHOD/${SCENE}_${TAG}"

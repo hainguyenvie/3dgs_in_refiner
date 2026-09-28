@@ -123,3 +123,12 @@ Shiny (final) GADA: 35.57 trung bình 3 scene. Chấm lại ảnh GADA bằng sc
 Chưa đo run variance trên máy này → **không** đặt ngưỡng cứng trước. Quy tắc: báo Δ từng dataset; nếu
 |ΔPSNR| của trung bình dataset > 0.3 dB (≈ 5–10× std MCMC báo) thì **truy nguồn** (split, resize, cờ,
 phiên bản) trước khi dùng baseline đó cho Protocol C. Mọi Δ, kể cả nhỏ, ghi vào `reports/`.
+
+## 6. Nhật ký truy nguồn (ghi khi phát sinh)
+
+- **28/09 — MCMC playroom −1.10 dB** (29.23 vs paper 30.33; drjohnson +0.50). `configs/playroom.json` của repo
+  **thiếu `opacity_reg: 0.001`** (drjohnson có), trong khi paper nói Deep Blending dùng λo = 0.001 → run r1 (đúng
+  theo repo) chạy λo = 0.01. Run chẩn đoán `playroom_oreg001` (`EXTRA_TRAIN='--opacity_reg 0.001'`). r1 giữ nguyên là
+  "theo repo"; nếu oreg001 về sát paper thì Protocol C dùng λo = 0.001 cho cả hai scene DB và ghi rõ.
+- LPIPS của MCMC paper cao hơn hệ thống so với `metrics.py` của repo (vd. room 0.25 vs 0.171) → không so LPIPS
+  MCMC với paper; chỉ PSNR/SSIM.
