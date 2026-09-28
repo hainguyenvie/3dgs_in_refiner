@@ -54,7 +54,7 @@ def main():
     model = raft_large(weights=Raft_Large_Weights.C_T_SKHT_V2).to(dev).eval()
     out = {}
     for scene in sys.argv[1:]:
-        d = ROOT / "outputs" / "protocolR" / "ibgs" / f"{scene}_pre" / "test" / "ours_30000"
+        d = Path(os.environ["E_BASE"].format(scene=scene)) / "test" / "ours_30000" if os.environ.get("E_BASE") else ROOT / "outputs" / "protocolR" / "ibgs" / f"{scene}_pre" / "test" / "ours_30000"
         if not (d / "warps").is_dir():
             print("no warps for", scene); continue
         names = sorted(os.listdir(d / "gt"))
@@ -114,7 +114,7 @@ def main():
                                      "band_share_err": (bs / bs.sum()).round(3).tolist()})
         out[scene] = r
         print(scene, json.dumps(r), flush=True)
-    rep = ROOT / "reports"; json.dump(out, open(rep / "e1b_source_warps.json", "w"), indent=1)
+    rep = ROOT / "reports"; json.dump(out, open(rep / f"e1b_source_warps{os.environ.get('E_TAG','')}.json", "w"), indent=1)
     md = ["# E1b — warped sources at test views (IBGS released checkpoints)", "",
           "| scene | raw | final | mean of valid src | oracle patch32 | oracle pixel | src0: valid% / PSNR(valid) / raw PSNR same px / mis. med px / >0.5px / >1px | src1 mis. med / >0.5px | src2 mis. med / >0.5px |",
           "|---|---|---|---|---|---|---|---|---|"]
@@ -125,7 +125,7 @@ def main():
                   f"{r['psnr_oracle_pixel']:.2f} | {g(s0,'valid_frac','{:.0%}')} / {g(s0,'psnr_on_valid')} / {g(s0,'psnr_raw_on_same_valid')} / "
                   f"{g(s0,'mis_median_px')} / {g(s0,'frac_mis_gt0.5px','{:.0%}')} / {g(s0,'frac_mis_gt1px','{:.0%}')} | "
                   f"{g(s1,'mis_median_px')} / {g(s1,'frac_mis_gt0.5px','{:.0%}')} | {g(s2,'mis_median_px')} / {g(s2,'frac_mis_gt0.5px','{:.0%}')} |")
-    (rep / "e1b_source_warps.md").write_text("\n".join(md) + "\n"); print("\n".join(md))
+    (rep / f"e1b_source_warps{os.environ.get('E_TAG','')}.md").write_text("\n".join(md) + "\n"); print("\n".join(md))
 
 
 if __name__ == "__main__":

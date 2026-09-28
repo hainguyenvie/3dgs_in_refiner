@@ -42,7 +42,7 @@ def main():
     model = raft_large(weights=Raft_Large_Weights.C_T_SKHT_V2).to(dev).eval()
     out = {}
     for scene in sys.argv[1:]:
-        d = ROOT / "outputs" / "protocolR" / "ibgs" / f"{scene}_pre" / "test" / "ours_30000"
+        d = Path(os.environ["E_BASE"].format(scene=scene)) / "test" / "ours_30000" if os.environ.get("E_BASE") else ROOT / "outputs" / "protocolR" / "ibgs" / f"{scene}_pre" / "test" / "ours_30000"
         acc = {k: [] for k in ["raw", "fin", "w", "w_ca", "w_al", "w_al_ca", "raw_al", "b_w", "b_w_al"]}
         for nm in sorted(os.listdir(d / "gt")):
             stem = os.path.splitext(nm)[0]
@@ -67,7 +67,7 @@ def main():
         r["band_share_warp_err"] = (bw / bw.sum()).round(3).tolist(); r["band_share_aligned_warp_err"] = (bwa / bwa.sum()).round(3).tolist()
         r["band_err_reduction_by_alignment"] = (1 - bwa / bw).round(3).tolist()
         out[scene] = r; print(scene, json.dumps(r), flush=True)
-    json.dump(out, open(ROOT / "reports" / "e1c_aligned_warp_bound.json", "w"), indent=1)
+    json.dump(out, open(ROOT / "reports" / f"e1c_aligned_warp_bound{os.environ.get('E_TAG','')}.json", "w"), indent=1)
     md = ["# E1c — single-source upper bounds on src0 valid & flow-consistent pixels (PSNR from mean MSE)", "",
           "| scene | raw | raw aligned | final | warp0 | warp0 +colour | **warp0 aligned** | aligned +colour | warp err share HF/MF/LFm/LF | after align | per-band reduction by alignment |",
           "|---|---|---|---|---|---|---|---|---|---|---|"]
@@ -75,7 +75,7 @@ def main():
         f = lambda v: "/".join(f"{x*100:.0f}" for x in v)
         md.append(f"| {s} | {r['raw']:.2f} | {r['raw_al']:.2f} | {r['fin']:.2f} | {r['w']:.2f} | {r['w_ca']:.2f} | **{r['w_al']:.2f}** | {r['w_al_ca']:.2f} | "
                   f"{f(r['band_share_warp_err'])} | {f(r['band_share_aligned_warp_err'])} | {f(r['band_err_reduction_by_alignment'])} |")
-    (ROOT / "reports" / "e1c_aligned_warp_bound.md").write_text("\n".join(md) + "\n"); print("\n".join(md))
+    (ROOT / "reports" / f"e1c_aligned_warp_bound{os.environ.get('E_TAG','')}.md").write_text("\n".join(md) + "\n"); print("\n".join(md))
 
 
 if __name__ == "__main__":

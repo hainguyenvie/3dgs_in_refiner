@@ -389,6 +389,15 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             continue
 
         loss.backward()
+        # [irgs] non-finite gradients with a finite loss (e.g. backward of norm() at an all-zero depth normal)
+        # would poison the Gaussians for good; zero them and count how often it happens.
+        _bad = 0
+        for _g in gaussians.optimizer.param_groups:
+            for _p in _g["params"]:
+                if _p.grad is not None and not torch.isfinite(_p.grad).all():
+                    _bad += int((~torch.isfinite(_p.grad)).sum()); _p.grad.nan_to_num_(nan=0.0, posinf=0.0, neginf=0.0)
+        if _bad:
+            with open(os.path.join(scene.model_path, "nonfinite_grads.txt"), "a") as _f: _f.write(f"{iteration} {_bad}\n")
         iter_end.record()
 
         with torch.no_grad():
