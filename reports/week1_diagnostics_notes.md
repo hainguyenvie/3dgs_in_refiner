@@ -124,3 +124,17 @@ The "62% sim3" of kitchen was the *shared* (intrinsics) field being approximated
 | playroom | 196 | 0.0050° (0.0109°) | 0.011% | 0.082 → 0.018 |
 | drjohnson | 230 | 0.0057° (0.0125°) | 0.010% | 0.103 → 0.021 |
 Corrections of a few thousandths of a degree / 1e-4 of the scene distance — far below anything a pose-estimation benchmark measures — are worth 0.05–0.2 px of phase and +0.1–0.5 dB. Garden/truck/train keep a larger non-pose residual (0.06–0.08 px): rolling shutter / distortion / genuinely non-smooth errors.
+
+### N2b — test-camera misalignment is a DATA property; sharper models pay more for it (`n2b_test_misalignment.py`, RAFT→poly3 per test view) — 2026-09-29
+| scene | model | test misalignment median px (p90) | PSNR penalty (aligned − std) | render HF rms | corr of per-view misalignment with MCMC |
+|---|---|---|---|---|---|
+| flowers | MCMC | 0.368 (0.882) | +0.38 | 0.1163 | — |
+| flowers | m1n | 0.436 (0.728) | +0.59 | 0.1198 | 0.82 |
+| flowers | m1w [sh] | 0.494 (0.958) | +0.82 | 0.1188 | 0.76 |
+| kitchen | MCMC | 0.113 (0.233) | +0.05 | 0.0449 | — |
+| kitchen | m1n | 0.140 (0.273) | +0.08 | 0.0449 | 0.95 |
+| kitchen | m1w [sh] | 0.165 (0.313) | +0.15 | 0.0450 | 0.80 |
+| bicycle | MCMC | 0.208 (0.332) | +0.42 | 0.1176 | — |
+| bicycle | m1n | 0.244 (0.336) | +0.53 | 0.1212 | 0.95 |
+| bicycle | m1w [sh] | 0.247 (0.359) | +0.62 | 0.1229 | 0.90 |
+Reading: which test views are misaligned, and by how much, is the same for every model (corr 0.8–0.95) → it is the test cameras' own COLMAP error (0.1–0.5 px median), not something the model did. The phase-refined models are 3–4% sharper (HF rms) and 0.03–0.13 px more misaligned in the RAFT estimate (part of that is RAFT measuring flow more confidently on sharper renders), and pay a larger PSNR penalty for the same test-pose error (flowers +0.38 → +0.82 dB). This is the quantitative form of the paper's protocol point: with fixed, imperfectly posed test cameras, standard PSNR taxes sharpness; CamP/BARF avoid the tax by test-time camera optimisation (not allowed here).
