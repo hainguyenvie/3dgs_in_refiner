@@ -98,3 +98,29 @@ Zip-NeRF 28.27 → +camera optimisation 28.48 (SE3) … 28.86 (FocalPose+intrins
 | playroom | 0.12 | 41% | (+0.05, 0.00) | −0.18 | +0.04 | +0.07 |
 A displacement common to ALL views in image space cannot come from a rigid motion of the scene (that would be view-dependent) — it is a shared-camera **intrinsics** error (principal point / focal / distortion; COLMAP uses one camera model per scene). Flowers: principal point ≈1 px off in y at 1/4 res (≈4 px full res) — that is why m1w std collapses without the shared field (−1.49) and recovers with it (−0.02). Applying it to test cameras is legitimate (same physical camera). So the learned image-space field decomposes into: shared part = intrinsics refinement, per-view part = extrinsics (pose) refinement (72–97%, G3D), remainder = higher-order/noise. Same decomposition CamP found most useful for NeRF ("FocalPose+Intrinsics" > "SE3").
 G3D apply (sim3 fitted on per-view+shared fields, applied to Gaussians): kitchen std 31.17→31.57, flowers 20.92→21.12, but stacking [sh] on top double-counts (kitchen 31.85 < 32.03, flowers 22.15 < 22.39) → rerun with the sim3 fitted on per-view fields only (`_g3dn`, pending).
+
+### G3D apply — NULL; anchors do hold the per-view gauge — 2026-09-29
+| model | std | [sh] | sim3(per-view+shared)→Gaussians | +[sh] | sim3(per-view only)→Gaussians | +[sh] |
+|---|---|---|---|---|---|---|
+| kitchen m1w | 31.17 | 32.03 | 31.57 | 31.85 | 31.20 | 32.03 |
+| flowers m1w | 20.92 | 22.39 | 21.12 | 22.15 | (pending) | |
+| bicycle m1w | 26.25 | 26.33 | 26.25 | 26.32 | — | |
+| playroom m1w | 30.48 | 30.52 | 30.49 | 30.53 | — | |
+The "62% sim3" of kitchen was the *shared* (intrinsics) field being approximated by a rigid scene motion; the per-view fields alone contain only 2.4% sim3 (kitchen) → the anchor views DO pin the 3D gauge. Everything the fitted sim3 recovers, the 2D shared field recovers better. Remaining deficits (kitchen −0.18, flowers std ≈ 0 vs aligned +0.42) are not a common-gauge problem.
+
+### How mis-posed is COLMAP? per-view 6-DoF corrections implied by the learned fields (m1n, no GT; `gauge3d_stats.py`)
+| scene | views | rotation median (p90) | translation median (% scene dist) | field rms px → residual after pose fit |
+|---|---|---|---|---|
+| bicycle | 169 | 0.0021° (0.0047°) | 0.004% | 0.137 → 0.056 |
+| garden | 161 | 0.0009° (0.0020°) | 0.002% | 0.076 → 0.062 |
+| stump | 109 | 0.0014° (0.0034°) | 0.003% | 0.090 → 0.032 |
+| flowers | 151 | 0.0024° (0.0047°) | 0.004% | 0.185 → 0.052 |
+| kitchen | 244 | 0.0016° (0.0033°) | 0.002% | 0.052 → 0.015 |
+| bonsai | 255 | 0.0016° (0.0028°) | 0.003% | 0.068 → 0.015 |
+| counter | 210 | 0.0009° (0.0019°) | 0.001% | 0.030 → 0.009 |
+| room | 272 | 0.0010° (0.0018°) | 0.001% | 0.036 → 0.011 |
+| truck | 219 | 0.0064° (0.0150°) | 0.009% | 0.124 → 0.074 |
+| train | 263 | 0.0063° (0.0150°) | 0.009% | 0.143 → 0.076 |
+| playroom | 196 | 0.0050° (0.0109°) | 0.011% | 0.082 → 0.018 |
+| drjohnson | 230 | 0.0057° (0.0125°) | 0.010% | 0.103 → 0.021 |
+Corrections of a few thousandths of a degree / 1e-4 of the scene distance — far below anything a pose-estimation benchmark measures — are worth 0.05–0.2 px of phase and +0.1–0.5 dB. Garden/truck/train keep a larger non-pose residual (0.06–0.08 px): rolling shutter / distortion / genuinely non-smooth errors.
