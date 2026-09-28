@@ -10,6 +10,7 @@ LIST="$1"; VARIANT="${VARIANT:-m1}"; SLOTS="${SLOTS:-2}"
 [ -z "${CARDS:-}" ] && { echo "set CARDS or RIT_CARDS"; exit 2; }
 case "$VARIANT" in
   m1)   EX="--learn_phase --phase_lr 1e-3 --phase_reg 1e-4 --phase_start 1000" ;;
+  m1s)  EX="--learn_phase --phase_lr 1e-3 --phase_reg 1e-3 --phase_start 1000 --phase_zero_mean" ;;   # safe: reg at the measured-field scale + gauge fixing
   m1m2) EX="--learn_phase --phase_lr 1e-3 --phase_reg 1e-4 --phase_start 1000 --shift_tol 0.5 --shift_grid 3 --shift_patch 32 --shift_start 7000" ;;
   m2)   EX="--shift_tol 0.5 --shift_grid 3 --shift_patch 32 --shift_start 7000" ;;
   *) echo "unknown VARIANT"; exit 2 ;;
