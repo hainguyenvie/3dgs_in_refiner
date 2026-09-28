@@ -103,7 +103,7 @@ G3D apply (sim3 fitted on per-view+shared fields, applied to Gaussians): kitchen
 | model | std | [sh] | sim3(per-view+shared)→Gaussians | +[sh] | sim3(per-view only)→Gaussians | +[sh] |
 |---|---|---|---|---|---|---|
 | kitchen m1w | 31.17 | 32.03 | 31.57 | 31.85 | 31.20 | 32.03 |
-| flowers m1w | 20.92 | 22.39 | 21.12 | 22.15 | (pending) | |
+| flowers m1w | 20.92 | 22.39 | 21.12 | 22.15 | 20.91 | 22.39 |
 | bicycle m1w | 26.25 | 26.33 | 26.25 | 26.32 | — | |
 | playroom m1w | 30.48 | 30.52 | 30.49 | 30.53 | — | |
 The "62% sim3" of kitchen was the *shared* (intrinsics) field being approximated by a rigid scene motion; the per-view fields alone contain only 2.4% sim3 (kitchen) → the anchor views DO pin the 3D gauge. Everything the fitted sim3 recovers, the 2D shared field recovers better. Remaining deficits (kitchen −0.18, flowers std ≈ 0 vs aligned +0.42) are not a common-gauge problem.

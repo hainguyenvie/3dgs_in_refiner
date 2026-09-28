@@ -126,3 +126,16 @@ Kết quả `m1w` (29/09 tối): playroom **+0.49** (raw 30.48, áp trường ch
 áp bằng resample mất HF), bicycle/kitchen đang chạy. Supersampling khi áp trường chung **không** giúp (render 2× ≠ render 1×).
 Kết luận tạm: thành phần chung là thật nhưng cần **rasterizer có méo** để áp chính xác; với rasterizer pinhole hiện có,
 `m1n` là cấu hình an toàn và `m1w` thắng lớn ở scene có thành phần chung nhỏ (DB).
+
+## 9. Ngày 3 (29/09, tối) — field pha là gì, và vì sao gain chuẩn bị chặn
+
+**Kết quả chẩn đoán không dùng GT** (`scripts/analysis/gauge3d_fit.py`, `gauge3d_stats.py`, `shared_field_decompose.py`):
+1. Phần **per-view** của field học được là hiệu chỉnh pose 6-DoF của camera huấn luyện: 72–97% năng lượng field được giải thích bởi một pose correction/view (kitchen 95%, flowers 97%, bicycle 77%). Độ lớn: quay 0.001–0.006°, dịch 1e-5–1e-4 khoảng cách scene — nhỏ hơn mọi thang đo pose-estimation, nhưng tương ứng 0.05–0.2 px pha và đáng +0.1…+0.5 dB.
+2. Phần **shared** (chung mọi view) là lỗi **intrinsics** của camera dùng chung (COLMAP một camera model/scene): flowers 98% affine, principal point lệch ≈1 px ở 1/4 res; kitchen 71% affine. Áp nó lên camera test là hợp lệ (cùng máy ảnh) — đó là lý do m1w cần "[sh]" (flowers −1.49 → −0.02).
+3. Anchor views **giữ được gauge 3D**: sim3 chung trong phần per-view chỉ 2.4% (kitchen); áp sim3 fit được lên Gaussians không đổi gì (kitchen 32.03→32.03, flowers 22.39→22.39). Render "exact" qua ma trận chiếu = resample tới 0.01 dB. ⇒ resampling và gauge chung không phải nút thắt còn lại.
+
+**Định vị:** đây là dòng *joint camera refinement* (BARF, SCNeRF, CamP, Robust-GS, 3R-GS). CamP (Zip-NeRF, Mip-360, pose COLMAP) được +0.2…+0.6 dB — **nhưng chấm theo protocol BARF: tối ưu lại camera test bằng chính ảnh test**. Với camera test cố định (protocol 3DGS chuẩn), chưa ai báo gain; mình đo được vì sao: camera test mang cùng sai số pha sub-pixel như camera train (E3/N2), nên model càng sharp càng bị phạt (−0.7 dB/0.1 px, E7). Phase-aligned PSNR của mình chính là protocol CamP/BARF cho 3DGS.
+
+**Điểm khác của mình so với CamP/Robust-GS:** (i) tham số hoá trong không gian ảnh, không cần gradient pose từ rasterizer (dùng được với mọi renderer, chi phí ~0), tự phân rã thành intrinsics (shared) + extrinsics (per-view) + phần dư bậc cao (distortion/rolling shutter — garden/truck/train còn 0.06–0.08 px không phải pose); (ii) chuỗi chẩn đoán chỉ ra blur = pha, không phải capacity, và IBR không chuyển được HF vì resampling; (iii) gauge fixing bằng anchor thay cho test-time optimisation.
+
+**Hệ quả cho mục tiêu "beat SOTA trên metric chuẩn":** ngân sách còn lại nằm ở sai số pose của *camera test* — không hợp lệ nếu chạm vào bằng GT. Hai lối đi còn hợp lệ: (a) chấp nhận gain chuẩn +0.0…+0.5 (đã thắng GADA 6/13 scene) và đề xuất protocol phase-aligned làm đóng góp phân tích; (b) ước lượng pose camera test **không dùng ảnh test** — không có thông tin; hoặc dùng *chỉ phần LF/gauge-free* của ảnh test (tương tự CamP dùng 100 bước Adam, nhưng đó vẫn là test-time optimisation). Đang đo n2b để tách "test lệch nhiều hơn" với "sharp hơn nên bị phạt nặng hơn".
