@@ -48,7 +48,8 @@ def build(scene, dx, dy):
     print("built", dst, m)
 
 
-def evaluate(scene, dx, dy):
+def evaluate(scene, dx, dy, mode=None):
+    mode = mode or os.environ.get("E10_MODE", "bilinear")
     import torch
     import torch.nn.functional as F
     from e1_misalignment import load, dev
@@ -63,16 +64,16 @@ def evaluate(scene, dx, dy):
         # to recover g on the original grid sample s at (u + dx, v + dy): pure bilinear resampling at a sub-pixel offset.
         yy, xx = torch.meshgrid(torch.arange(H, device=dev), torch.arange(W, device=dev), indexing="ij")
         grid = torch.stack([(xx + dx) / (W - 1) * 2 - 1, (yy + dy) / (H - 1) * 2 - 1], -1)[None].float()
-        back = F.grid_sample(s, grid, mode="bilinear", padding_mode="border", align_corners=True)
+        back = F.grid_sample(s, grid, mode=mode, padding_mode="border", align_corners=True)
         m = torch.ones_like(g[:, :1]); m[..., :2, :] = 0; m[..., -2:, :] = 0; m[..., :, :2] = 0; m[..., :, -2:] = 0
         e = ((back - g) ** 2).mean(1, keepdim=True)
         mses.append(float((e * m).sum() / m.sum())); bnd.append(bands((back - g) * m))
     mse = float(np.mean(mses)); b = np.mean(bnd, 0)
-    r = {"scene": scene, "shift": [dx, dy], "psnr_resample_floor": -10 * np.log10(mse), "band_share_err": (b / b.sum()).round(3).tolist(), "views": len(mses)}
+    r = {"scene": scene, "shift": [dx, dy], "mode": mode, "psnr_resample_floor": -10 * np.log10(mse), "band_share_err": (b / b.sum()).round(3).tolist(), "views": len(mses)}
     print(json.dumps(r))
     p = ROOT / "reports" / "e10_resampling_floor.json"
     allr = json.load(open(p)) if p.exists() else {}
-    allr[f"{scene}_{dx}_{dy}"] = r; json.dump(allr, open(p, "w"), indent=1)
+    allr[f"{scene}_{dx}_{dy}_{mode}"] = r; json.dump(allr, open(p, "w"), indent=1)
 
 
 if __name__ == "__main__":

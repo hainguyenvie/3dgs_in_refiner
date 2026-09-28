@@ -1,0 +1,32 @@
+{
+ "bicycle_0.5_0.5": {
+  "scene": "bicycle",
+  "shift": [
+   0.5,
+   0.5
+  ],
+  "psnr_resample_floor": 28.650856770121624,
+  "band_share_err": [
+   0.663,
+   0.307,
+   0.027,
+   0.002
+  ],
+  "views": 25
+ },
+ "garden_0.5_0.5": {
+  "scene": "garden",
+  "shift": [
+   0.5,
+   0.5
+  ],
+  "psnr_resample_floor": 28.483991009977522,
+  "band_share_err": [
+   0.688,
+   0.288,
+   0.022,
+   0.003
+  ],
+  "views": 24
+ }
+}
