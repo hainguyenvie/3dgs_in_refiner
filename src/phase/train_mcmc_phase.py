@@ -38,9 +38,19 @@ except ImportError:
 class PhaseWarp:
     """Warp the render by a fixed per-view smooth field f (pixels, gt(p) ~ render(p + f(p))) before the loss.
     Fields come from scripts/analysis/p4_fields.py. flow_scale 0 -> identity sampling at integer positions."""
-    def __init__(self, path, scale):
+    def __init__(self, path, scale, learn=False, lr=0.0, init_from_fields=True, names=None):
         j = json.load(open(path)); self.terms = [tuple(t) for t in j["terms"]]; self.views = j["views"]; self.scale = scale
         self.cache = {}; self.hits = 0; self.misses = 0
+        self.learn = learn; self.params = {}; self.opt = None; self.ref = {}
+        if learn:   # [phase] one coefficient table (T x 2) per train view, optimised jointly with the Gaussians
+            T = len(self.terms)
+            for n in (names or list(self.views.keys())):
+                v = self.views.get(n)
+                init = torch.tensor(v["A"], dtype=torch.float32) if (v is not None and init_from_fields) else torch.zeros(T, 2)
+                self.params[n] = torch.nn.Parameter(init.cuda())
+                if v is not None: self.ref[n] = (v["W"], v["H"])
+            self.opt = torch.optim.Adam(list(self.params.values()), lr=lr, eps=1e-15)
+            print(f"[phase] learnable fields: {len(self.params)} views, lr={lr}, init_from_fields={init_from_fields}")
     def field(self, name, H, W):
         key = (name, H, W)
         if key not in self.cache:
@@ -55,17 +65,37 @@ class PhaseWarp:
                 f = (B @ A) * torch.tensor([W / v["W"], H / v["H"]], device="cuda")   # rescale if resolution differs
                 self.cache[key] = f.permute(2, 0, 1)                                    # 2 x H x W
         return self.cache[key]
+    def basis(self, H, W):
+        key = ("B", H, W)
+        if key not in self.cache:
+            yy, xx = torch.meshgrid(torch.arange(H, device="cuda", dtype=torch.float32), torch.arange(W, device="cuda", dtype=torch.float32), indexing="ij")
+            xn, yn = xx / W - 0.5, yy / H - 0.5
+            self.cache[key] = torch.stack([xn ** i * yn ** j for i, j in self.terms], -1)
+        return self.cache[key]
+    def reg(self):
+        """L2 on the field magnitude (pixels) — keeps the learnable warp from absorbing scene content."""
+        if not self.learn: return 0.0
+        return sum((p ** 2).sum() for p in self.params.values()) / max(1, len(self.params))
     def __call__(self, image, name):
         _, H, W = image.shape
-        f = self.field(name, H, W)
-        if f is None:
-            self.misses += 1; return image
+        if self.learn:
+            if name not in self.params:
+                self.misses += 1; return image
+            A = self.params[name]
+            sc = torch.tensor([W / self.ref[name][0], H / self.ref[name][1]], device="cuda") if name in self.ref else 1.0
+            f = ((self.basis(H, W) @ A) * sc).permute(2, 0, 1)
+        else:
+            f = self.field(name, H, W)
+            if f is None:
+                self.misses += 1; return image
         self.hits += 1
         yy, xx = torch.meshgrid(torch.arange(H, device="cuda", dtype=torch.float32), torch.arange(W, device="cuda", dtype=torch.float32), indexing="ij")
         gx = (xx + self.scale * f[0]) / (W - 1) * 2 - 1; gy = (yy + self.scale * f[1]) / (H - 1) * 2 - 1
         return F.grid_sample(image[None], torch.stack([gx, gy], -1)[None], mode="bicubic", padding_mode="border", align_corners=True)[0]
 
 PHASE = None
+PHASE_REG = 0.0
+PHASE_START = 0
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
     if dataset.cap_max == -1:
@@ -136,6 +166,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         image_l = PHASE(image, viewpoint_cam.image_name) if PHASE is not None else image
         Ll1 = l1_loss(image_l, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image_l, gt_image))
+        if PHASE is not None and PHASE.learn:
+            loss = loss + PHASE_REG * PHASE.reg()
 
         loss = loss + args.opacity_reg * torch.abs(gaussians.get_opacity).mean()
         loss = loss + args.scale_reg * torch.abs(gaussians.get_scaling).mean()
@@ -168,6 +200,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             if iteration < opt.iterations:
                 gaussians.optimizer.step()
                 gaussians.optimizer.zero_grad(set_to_none = True)
+                if PHASE is not None and PHASE.opt is not None and iteration >= PHASE_START:
+                    PHASE.opt.step()
+                if PHASE is not None and PHASE.opt is not None:
+                    PHASE.opt.zero_grad(set_to_none=True)
 
                 L = build_scaling_rotation(gaussians.get_scaling, gaussians.get_rotation)
                 actual_covariance = L @ L.transpose(1, 2)
@@ -263,10 +299,16 @@ if __name__ == "__main__":
     parser.add_argument("--start_checkpoint", type=str, default = None)
     parser.add_argument("--view_flow", type=str, default=None)      # [phase] json from p4_fields.py
     parser.add_argument("--flow_scale", type=float, default=1.0)    # [phase] 0 = identity (code-path control)
+    parser.add_argument("--learn_phase", action="store_true")       # [phase] per-view coefficients as parameters
+    parser.add_argument("--phase_lr", type=float, default=1e-3)
+    parser.add_argument("--phase_reg", type=float, default=1e-4)    # weight on mean squared coefficient (px^2)
+    parser.add_argument("--phase_start", type=int, default=1000)    # iterations before the field starts moving
+    parser.add_argument("--phase_init_zero", action="store_true")   # ignore the measured fields, start at identity
     args = parser.parse_args(sys.argv[1:])
     if args.view_flow:
-        PHASE = PhaseWarp(args.view_flow, args.flow_scale)
-        print(f"[phase] view_flow={args.view_flow} scale={args.flow_scale} views={len(PHASE.views)}")
+        PHASE = PhaseWarp(args.view_flow, args.flow_scale, learn=args.learn_phase, lr=args.phase_lr, init_from_fields=not args.phase_init_zero)
+        PHASE_REG = args.phase_reg; PHASE_START = args.phase_start
+        print(f"[phase] view_flow={args.view_flow} scale={args.flow_scale} views={len(PHASE.views)} learn={args.learn_phase}")
     
     if args.config is not None:
         # Load the configuration file
@@ -290,4 +332,9 @@ if __name__ == "__main__":
     # All done
     if PHASE is not None:
         print(f"[phase] warped {PHASE.hits} renders, {PHASE.misses} views without field")
+        if PHASE.learn:
+            A = torch.stack(list(PHASE.params.values())).detach()
+            mag = [float(((PHASE.basis(64, 96) @ a).norm(dim=-1)).mean()) for a in A]   # mean field magnitude per view (px, coarse grid)
+            print(f"[phase] learned field magnitude px: median {float(torch.tensor(mag).median()):.3f} max {max(mag):.3f}")
+            torch.save({k: v.detach().cpu() for k, v in PHASE.params.items()}, os.path.join(args.model_path, "phase_fields.pt"))
     print("\nTraining complete.")

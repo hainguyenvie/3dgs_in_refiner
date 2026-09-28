@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # P4: MCMC (author config, original data) with the phase-aware loss (render warped by the per-view smooth field).
-#   G=<card> setsid nohup bash scripts/run_p4.sh <scene> <flow_scale> <tag> > logs/p4/<tag>.log 2>&1 < /dev/null &
+#   G=<card> [EXTRA="--learn_phase ..."] setsid nohup bash scripts/run_p4.sh <scene> <flow_scale> <tag> > logs/p4/<tag>.log 2>&1 < /dev/null &
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCENE="$1"; SCALE="$2"; TAG="$3"
@@ -13,7 +13,7 @@ CFG=$REPO/configs/$SCENE.json; RES=$(python3 -c "import json;print(json.load(ope
 echo "scene=$SCENE scale=$SCALE tag=$TAG fields=$ROOT/data/p4/${SCENE}_fields.json utc=$(date -u +%FT%TZ) code_md5=$(md5sum $ROOT/src/phase/train_mcmc_phase.py | cut -c1-12)" | tee "$OUT/run_meta.txt"
 [ -f "$OUT/point_cloud/iteration_30000/point_cloud.ply" ] || \
   $PY -u $ROOT/src/phase/train_mcmc_phase.py -s "$SRC" -m "$OUT" --config "$CFG" --eval --init_type sfm --quiet \
-      --view_flow $ROOT/data/p4/${SCENE}_fields.json --flow_scale $SCALE
+      --view_flow $ROOT/data/p4/${SCENE}_fields.json --flow_scale $SCALE ${EXTRA:-}
 [ -d "$OUT/test/ours_30000/renders" ] || $PY -u render.py -s "$SRC" -m "$OUT" --iteration 30000 -r $RES --eval --skip_train --quiet
 [ -f "$OUT/results.json" ] || $PY -u metrics.py -m "$OUT"
 cat "$OUT/results.json"; echo JOB_DONE
