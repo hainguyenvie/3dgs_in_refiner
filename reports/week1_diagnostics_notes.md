@@ -88,3 +88,13 @@ Resampling is not what limits the shared-field application (exact = resampled to
 
 ### Prior art check — CamP (Park et al., SIGGRAPH Asia 2023), mip-NeRF 360 with COLMAP poses
 Zip-NeRF 28.27 → +camera optimisation 28.48 (SE3) … 28.86 (FocalPose+intrinsics+CamP), i.e. **+0.2 … +0.6 dB from refining COLMAP cameras during training** — *but evaluated with the BARF protocol: test camera parameters are re-estimated by photometric test-time optimisation against the test photo* (100 Adam steps). That is the same gauge problem we hit (scene drifts w.r.t. fixed test cameras) and the same remedy as our phase-aligned metric. So: the intuition "COLMAP sub-pixel pose error blurs the reconstruction and joint refinement recovers +0.3–0.6 dB" is established for NeRF (CamP); for 3DGS on the standard benchmarks with *fixed* test cameras nobody reports it (Robust-GS: ScanNet++/Deblur-NeRF only; 3R-GS/JOGS: noisy/MASt3R poses). Our standard-metric gains (+0.1–0.5) are the part of that budget that survives without touching test cameras; the rest requires either test-time alignment (not allowed in the standard protocol) or a gauge fix that works on every scene (anchors fail on flowers).
+
+### Shared field = camera INTRINSICS correction (decomposition of `phase_shared.json`, m1w) — 2026-09-29
+| scene | |f_shared| px (train res) | affine share | translation px | iso scale | rotation | shear |
+|---|---|---|---|---|---|---|---|
+| flowers | 1.04 | **98%** | (+0.17, **−0.99**) | −0.42 | +0.03 | −0.55 |
+| kitchen | 0.36 | 71% | (+0.14, −0.28) | +0.12 | +0.02 | −0.12 |
+| bicycle | 0.10 | 65% | (+0.04, +0.05) | −0.15 | −0.02 | −0.08 |
+| playroom | 0.12 | 41% | (+0.05, 0.00) | −0.18 | +0.04 | +0.07 |
+A displacement common to ALL views in image space cannot come from a rigid motion of the scene (that would be view-dependent) — it is a shared-camera **intrinsics** error (principal point / focal / distortion; COLMAP uses one camera model per scene). Flowers: principal point ≈1 px off in y at 1/4 res (≈4 px full res) — that is why m1w std collapses without the shared field (−1.49) and recovers with it (−0.02). Applying it to test cameras is legitimate (same physical camera). So the learned image-space field decomposes into: shared part = intrinsics refinement, per-view part = extrinsics (pose) refinement (72–97%, G3D), remainder = higher-order/noise. Same decomposition CamP found most useful for NeRF ("FocalPose+Intrinsics" > "SE3").
+G3D apply (sim3 fitted on per-view+shared fields, applied to Gaussians): kitchen std 31.17→31.57, flowers 20.92→21.12, but stacking [sh] on top double-counts (kitchen 31.85 < 32.03, flowers 22.15 < 22.39) → rerun with the sim3 fitted on per-view fields only (`_g3dn`, pending).

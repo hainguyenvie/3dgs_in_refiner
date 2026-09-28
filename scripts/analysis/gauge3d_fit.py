@@ -84,7 +84,7 @@ def solve(rows, which=slice(0, 7)):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("model"); ap.add_argument("-r", type=float, default=1); ap.add_argument("--apply", action="store_true")
-    ap.add_argument("--no_shared", action="store_true"); ap.add_argument("--anchor_every", type=int, default=8)
+    ap.add_argument("--no_shared", action="store_true"); ap.add_argument("--anchor_every", type=int, default=8); ap.add_argument("--suffix", default="")
     a = ap.parse_args()
     rows, X = build(a.model, not a.no_shared)
     names = sorted(r[2] for r in rows); anchors = set(names[a.anchor_every // 2::a.anchor_every])
@@ -130,7 +130,7 @@ def main():
                        w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2, w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2], 1)
         for i, k in enumerate(("rot_0", "rot_1", "rot_2", "rot_3")):
             v[k] = qn[:, i].astype(np.float32)
-        dst_model = a.model.rstrip("/") + "_g3d"
+        dst_model = a.model.rstrip("/") + "_g3d" + a.suffix
         os.makedirs(os.path.join(dst_model, "point_cloud", "iteration_30000"), exist_ok=True)
         PlyData([PlyElement.describe(v, "vertex")]).write(os.path.join(dst_model, "point_cloud", "iteration_30000", "point_cloud.ply"))
         for f in ("cfg_args", "cameras.json", "phase_shared.json"):
