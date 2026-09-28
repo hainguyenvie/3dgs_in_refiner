@@ -10,10 +10,11 @@ OUT=$ROOT/outputs/p4/$TAG; mkdir -p "$OUT" "$ROOT/logs/p4"
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES="${G:?}" OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
 cd "$REPO"
 CFG=$REPO/configs/$SCENE.json; RES=$(python3 -c "import json;print(json.load(open('$CFG'))['resolution'])")
-echo "scene=$SCENE scale=$SCALE tag=$TAG fields=$ROOT/data/p4/${SCENE}_fields.json utc=$(date -u +%FT%TZ) code_md5=$(md5sum $ROOT/src/phase/train_mcmc_phase.py | cut -c1-12)" | tee "$OUT/run_meta.txt"
+FIELDS=$ROOT/data/p4/${SCENE}_fields.json; [ "${NO_FIELDS:-0}" = 1 ] && FIELDS=none
+echo "scene=$SCENE scale=$SCALE tag=$TAG fields=$FIELDS extra=${EXTRA:-} utc=$(date -u +%FT%TZ) code_md5=$(md5sum $ROOT/src/phase/train_mcmc_phase.py | cut -c1-12)" | tee "$OUT/run_meta.txt"
 [ -f "$OUT/point_cloud/iteration_30000/point_cloud.ply" ] || \
   $PY -u $ROOT/src/phase/train_mcmc_phase.py -s "$SRC" -m "$OUT" --config "$CFG" --eval --init_type sfm --quiet \
-      --view_flow $ROOT/data/p4/${SCENE}_fields.json --flow_scale $SCALE ${EXTRA:-}
+      --view_flow $FIELDS --flow_scale $SCALE ${EXTRA:-}
 [ -d "$OUT/test/ours_30000/renders" ] || $PY -u render.py -s "$SRC" -m "$OUT" --iteration 30000 -r $RES --eval --skip_train --quiet
 [ -f "$OUT/results.json" ] || $PY -u metrics.py -m "$OUT"
 cat "$OUT/results.json"; echo JOB_DONE

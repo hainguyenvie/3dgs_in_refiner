@@ -38,8 +38,13 @@ except ImportError:
 class PhaseWarp:
     """Warp the render by a fixed per-view smooth field f (pixels, gt(p) ~ render(p + f(p))) before the loss.
     Fields come from scripts/analysis/p4_fields.py. flow_scale 0 -> identity sampling at integer positions."""
-    def __init__(self, path, scale, learn=False, lr=0.0, init_from_fields=True, names=None):
-        j = json.load(open(path)); self.terms = [tuple(t) for t in j["terms"]]; self.views = j["views"]; self.scale = scale
+    def __init__(self, path, scale, learn=False, lr=0.0, init_from_fields=True, names=None, deg=3):
+        if path and os.path.exists(path):
+            j = json.load(open(path)); self.terms = [tuple(t) for t in j["terms"]]; self.views = j["views"]
+        else:   # no measured fields: learnable from zero for every train view (RAFT-free)
+            self.terms = [(i, j) for i in range(deg + 1) for j in range(deg + 1 - i)]; self.views = {}
+            assert learn and names, "without a fields json the field must be learnable and needs the train view names"
+        self.scale = scale
         self.cache = {}; self.hits = 0; self.misses = 0
         self.learn = learn; self.params = {}; self.opt = None; self.ref = {}
         if learn:   # [phase] one coefficient table (T x 2) per train view, optimised jointly with the Gaussians
@@ -94,6 +99,7 @@ class PhaseWarp:
         return F.grid_sample(image[None], torch.stack([gx, gy], -1)[None], mode="bicubic", padding_mode="border", align_corners=True)[0]
 
 PHASE = None
+PHASE_ARGS = None
 PHASE_REG = 0.0
 PHASE_START = 0
 SHIFT_TOL = None   # [phase-M2] (tol_px, grid_n, patch): per-patch min over sub-pixel shifts of the render
@@ -123,6 +129,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     gaussians = GaussianModel(dataset.sh_degree)
     scene = Scene(dataset, gaussians)
     gaussians.training_setup(opt)
+    global PHASE
+    if PHASE_ARGS is not None and PHASE is None:   # [phase] RAFT-free learnable fields for all train views
+        PHASE = PhaseWarp(PHASE_ARGS["path"], PHASE_ARGS["scale"], learn=True, lr=PHASE_ARGS["lr"], init_from_fields=False,
+                          names=[c.image_name for c in scene.getTrainCameras()])
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
         gaussians.restore(model_params, opt)
@@ -332,10 +342,13 @@ if __name__ == "__main__":
     if args.shift_tol > 0:
         SHIFT_TOL = (args.shift_tol, args.shift_grid, args.shift_patch, args.shift_start)
         print(f"[phase-M2] shift-tolerant L1: tol={args.shift_tol}px grid={args.shift_grid} patch={args.shift_patch} from iter {args.shift_start}")
-    if args.view_flow:
+    if args.view_flow and os.path.exists(args.view_flow):
         PHASE = PhaseWarp(args.view_flow, args.flow_scale, learn=args.learn_phase, lr=args.phase_lr, init_from_fields=not args.phase_init_zero)
-        PHASE_REG = args.phase_reg; PHASE_START = args.phase_start
         print(f"[phase] view_flow={args.view_flow} scale={args.flow_scale} views={len(PHASE.views)} learn={args.learn_phase}")
+    elif args.learn_phase:   # no fields file: build learnable fields once the scene (train view names) is known
+        PHASE_ARGS = {"path": None, "scale": args.flow_scale, "lr": args.phase_lr}
+        print(f"[phase] learnable fields from zero for all train views (no measured fields), lr={args.phase_lr}")
+    PHASE_REG = args.phase_reg; PHASE_START = args.phase_start
     
     if args.config is not None:
         # Load the configuration file
