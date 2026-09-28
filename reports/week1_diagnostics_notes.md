@@ -57,3 +57,13 @@ Mọi phân tích dùng render Protocol R (test view, không train thêm, không
 - `ssh -n` + heredoc ⇒ file rỗng; `cd X && cmd &` ⇒ `cd` chạy trong subshell nền. Đã giẫm cả hai.
 - 3DGS `render.py` đặt tên render theo **chỉ số** trong danh sách camera sắp theo tên, không theo tên ảnh.
 - MCMC + loss hình học IBGS: NaN rời rạc quanh iter 7000 (lúc bật normal/photometric loss) ở ~50% run; guard bỏ qua bước NaN (`nan_skips.txt`).
+
+### m1w bicycle / kitchen (shared field + anchors, reg 1e-3) — done 2026-09-29
+| scene | MCMC | m1w std | m1w [sh] | m1sh [sh] | shared coarse px |
+|---|---|---|---|---|---|
+| bicycle | 26.13 | 26.25 (+0.12) | **26.33 (+0.20)** | 26.30 (+0.17) | 0.10 |
+| kitchen | 32.21 | 31.17 (−1.04) | 32.03 (−0.18) | 31.91 (−0.30) | 0.36 |
+| playroom | 30.03 | 30.48 (+0.45) | **30.52 (+0.49)** | 29.79 (−0.24) | 0.12 |
+| flowers | 22.41 | 20.92 (−1.49) | 22.39 (−0.02) | — | 1.04 |
+Reading: shared-field application at test is required whenever the common component is non-trivial (kitchen/flowers lose >1 dB without it). m1w ≥ m1sh on all 4 scenes. Kitchen still −0.18 (mis-posed view DSCF0931; cap run pending). Bicycle m1w [sh] +0.20 vs best previous single-view variant +0.17; run-to-run noise ≈ 0.035.
+Next: exact camera-side application of the shared affine part (`src/phase/render_shared_exact.py`) — flowers aligned +0.42 says the model is better than resampled [sh] shows.
