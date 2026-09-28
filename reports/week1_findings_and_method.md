@@ -86,8 +86,11 @@ lớn phi affine (E3) — P3 sẽ tách. Pose test cũng có lỗi (E1: 0.1–0.
 
 ## 8. Trạng thái method sau ngày 2 (29/09)
 
-**Method v1 = MCMC + trường pha học được theo view** (`src/phase/train_mcmc_phase.py`, cờ `m1s`: poly bậc 3, reg 1e-3,
-zero-mean gauge, bắt đầu 1k). Inference một stage, không ảnh nguồn.
+**Method v1 = MCMC + trường pha học được theo view** (`src/phase/train_mcmc_phase.py`, cờ **`m1n`**: poly bậc 3, reg 1e-3,
+**neo 1/8 view train (trường = 0)**, bắt đầu 1k). Inference một stage, không ảnh nguồn.
+Cố định gauge bằng **neo view** chứ không zero-mean: nếu mọi view cùng chia sẻ một thành phần lệch (méo/intrinsics dư),
+zero-mean ép model về khung "trung bình" khác khung camera gốc mà view test dùng (playroom −0.40, kitchen −0.23); neo
+view giữ model ở khung camera gốc (bonsai 0 thay vì −0.12, bicycle +0.16).
 
 | Bằng chứng | Số |
 |---|---|
