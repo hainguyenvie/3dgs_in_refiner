@@ -109,3 +109,15 @@ lệch pha → đề xuất phase-aligned PSNR làm metric chẩn đoán kèm th
 
 **Việc còn lại:** P7 (13 scene, `m1s`) đang chạy; chọn gauge (zero-mean vs neo); ghép M3; 2–3 seed cho bảng chính;
 đo chi phí (train time, không đổi ở inference); viết.
+
+### 8.1 Cập nhật 29/09 (chiều) — hai cấu hình, một mâu thuẫn, và lối ra
+
+| Cấu hình | PSNR chuẩn (mean 13, Δ vs MCMC) | Phase-aligned (mean 13) | Nhận xét |
+|---|---|---|---|
+| `m1` (reg 1e-4, không gauge) | −0.05 | **+0.27** (12/13 dương; flowers +0.61, playroom +0.65) | Trường lớn bắt đúng inconsistency; mất điểm chuẩn là **drift** |
+| `m1n` (reg 1e-3 + neo view) | +0.02 | +0.07 (outdoor +0.06…+0.29; counter/kitchen/drjohnson âm) | An toàn nhưng nén mất phần lớn tín hiệu |
+
+Lối ra (đang chạy, `m1w` = reg 1e-4 + neo + **trường chung**): thành phần chung của mọi view là tính chất camera
+(méo/intrinsics dư) → học riêng, **áp cho cả render test** (vẫn một stage, không ảnh nguồn); phần dư theo view được
+neo để không trôi. Nếu PSNR chuẩn của `m1w` tiến gần mức aligned của `m1`, method đạt cỡ **+0.2–0.3 dB trung bình**
+so với MCMC bằng render thường — đủ để vượt GADA ở outdoor một cách rõ ràng và không thua ở indoor.
