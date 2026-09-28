@@ -2,7 +2,7 @@
 # Distribute Protocol R runs over cards: SLOTS queues per card, each queue runs its jobs sequentially.
 #
 #   CARDS=0,1,2,3,4,5,6,7 SLOTS=2 bash scripts/launch_protocolR.sh jobs.txt
-#   jobs.txt: one job per line, "<ibgs|3dgs|mcmc> <scene> [tag]"
+#   jobs.txt: one job per line, "<ibgs|3dgs|mcmc|irgs.<variant>> <scene> [tag]"
 # Every job is idempotent (guards in run_*.sh), so relaunching the same list only redoes missing work.
 # Quality numbers are what Protocol R is for; timings of co-scheduled jobs are contended (noted in reports).
 set -euo pipefail
@@ -26,6 +26,8 @@ for q in "${!LIST[@]}"; do
       log=$ROOT/logs/protocolR/${m}_${sc}_${tag}.log
       echo "[$(date -u +%FT%TZ)] card=$card start $m $sc $tag"
       if [ "$m" = ibgs ]; then G=$card NO_VGATE=1 OMP_NUM_THREADS=2 bash $ROOT/scripts/run_ibgs.sh $sc $tag > $log 2>&1
+      elif [[ "$m" == irgs.* ]]; then mkdir -p $ROOT/logs/irgs; log=$ROOT/logs/irgs/${m#irgs.}_${sc}_${tag}.log
+        G=$card OMP_NUM_THREADS=2 bash $ROOT/scripts/run_irgs.sh ${m#irgs.} $sc $tag > $log 2>&1
       else G=$card NO_VGATE=1 OMP_NUM_THREADS=2 bash $ROOT/scripts/run_gs_baseline.sh $m $sc $tag > $log 2>&1; fi
       echo "[$(date -u +%FT%TZ)] card=$card end $m $sc $tag rc=$?"
     done
