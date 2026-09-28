@@ -376,8 +376,18 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         if opt.densify_mode == "mcmc":
             loss = loss + opt.opacity_reg * torch.abs(gaussians.get_opacity).mean()
             loss = loss + opt.scale_reg * torch.abs(gaussians.get_scaling).mean()
-        if torch.isnan(loss): assert False, "Loss is NaN"
-        
+        # [irgs] NaN guard: name the offending term, skip the step, abort only if it keeps happening
+        if torch.isnan(loss):
+            terms = {"image": image_loss, "normal": normal_loss, "photometric": photometric_loss, "aggregate": aggregate_image_loss}
+            bad = [k for k, v in terms.items() if torch.isnan(v)]
+            nan_skips = getattr(training, "_nan_skips", 0) + 1; training._nan_skips = nan_skips
+            print(f"\n[irgs] NaN loss at iter {iteration} in {bad} (skip #{nan_skips})", flush=True)
+            with open(os.path.join(scene.model_path, "nan_skips.txt"), "a") as _f: _f.write(f"{iteration} {bad}\n")
+            assert nan_skips < 50, "Loss is NaN repeatedly"
+            gaussians.optimizer.zero_grad(set_to_none=True); app_model.optimizer.zero_grad(set_to_none=True)
+            if color_aggregation_optimizer is not None: color_aggregation_optimizer.zero_grad()
+            continue
+
         loss.backward()
         iter_end.record()
 
