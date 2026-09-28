@@ -16,3 +16,6 @@ __pycache__/
 *.pt
 *.ply
 *.zip
+# reference papers (copyrighted PDFs) — local/server only
+papers/
+.venv_tools/
