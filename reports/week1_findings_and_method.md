@@ -60,7 +60,8 @@ Mục tiêu số: raw của ta ≥ final của GADA (Mip360 28.62 / T&T 24.92 / 
 | **P1 (xong)** | M1 (pose 6-DoF) làm Gaussian sắc lên? | Kết quả: render-signal bicycle **+0.14**, σ_eff 0.435→0.422; garden ≈ 0; warp-signal **hại** cả hai dấu (nhiễu). **P4 (xong)**: trường trơn bậc 3 áp lên render trong loss: bicycle +0.17, garden +0.09, stump +0.12, σ_eff giảm ở cả 3, đối chứng sạch | Cơ chế xác nhận, biên độ nhỏ → M1 học được trong train (P5) |
 | ~~P1 (1 ngày)~~ | M1 thật sự làm Gaussian sắc lên? | Đóng băng MCMC bicycle/garden/counter; ước lượng hiệu chỉnh view bằng flow warp láng giềng (post-hoc), ghi lại pose/méo; **train lại từ đầu** với pose đã sửa; đo raw PSNR, σ_eff, HF share trên test (pose test không đổi) | raw +≥0.3 dB **và** σ_eff giảm ⇒ M1 có thật. Đối chứng: cùng quy trình nhưng sửa bằng gradient của model (kiểu CamP) |
 | **P4/P5 (xong)** | M1 dạng trường trơn: cố định (đo RAFT) vs **học được trong train** | P4: bicycle +0.17, garden +0.09, stump +0.12, counter 0 (đối chứng indoor), σ_eff giảm cả 3. **P5 (học từ 0, không RAFT)**: bicycle +0.14 / LPIPS −6% / σ_eff 0.435→0.397; garden +0.13 / LPIPS −7% / σ_eff 0.376→0.340; trường học ≈ trường đo (garden cos 0.88) | M1 **xác nhận**, tự chứa. Biên độ PSNR nhỏ; sắc nét/LPIPS rõ |
-| **P2 → M2 (đang chạy)** | M2 giữ được HF? | Train MCMC với loss dung sai dịch (patch, ±0.5 px) vs L1/SSIM; cùng seed/budget | σ_eff giảm, PSNR không giảm; ảnh không ghosting |
+| **P2 → M2 (xong)** | M2 giữ được HF? | Kết quả: riêng M2 +0.05/+0.06, σ_eff giảm nhẹ; M1+M2 ≈ M1 | **Loại M2**; method = M1 (trường pha học được) + base MCMC → P6 (13 scene, đang chạy) |
+| ~~P2~~ | | Train MCMC với loss dung sai dịch (patch, ±0.5 px) vs L1/SSIM; cùng seed/budget | σ_eff giảm, PSNR không giảm; ảnh không ghosting |
 
 Chỉ khi P1/P2 có tín hiệu mới ghép M1+M2(+M3) thành method, chạy đủ 13 scene, ≥ 2 seed, so IBGS/GADA.
 
