@@ -14,6 +14,7 @@ case "$VARIANT" in
   m1a)  EX="--learn_phase --phase_lr 1e-3 --phase_reg 1e-3 --phase_start 1000 --phase_zero_mean --phase_deg 1" ;;   # affine-only fields
   m1n)  EX="--learn_phase --phase_lr 1e-3 --phase_reg 1e-3 --phase_start 1000 --phase_anchor_every 8" ;;   # v1: anchor-view gauge fixing
   m1w)  EX="--learn_phase --phase_lr 1e-3 --phase_reg 1e-4 --phase_start 1000 --phase_anchor_every 8 --phase_shared" ;;   # v2 candidate: weak reg + anchors + shared (test-applied) field
+  m1wc) EX="--learn_phase --phase_lr 1e-3 --phase_reg 1e-4 --phase_start 1000 --phase_anchor_every 8 --phase_shared --phase_cap 0.5" ;;   # m1w + per-view cap (robust to a mis-posed view: kitchen)
   m1m2) EX="--learn_phase --phase_lr 1e-3 --phase_reg 1e-4 --phase_start 1000 --shift_tol 0.5 --shift_grid 3 --shift_patch 32 --shift_start 7000" ;;
   m2)   EX="--shift_tol 0.5 --shift_grid 3 --shift_patch 32 --shift_start 7000" ;;
   *) echo "unknown VARIANT"; exit 2 ;;
