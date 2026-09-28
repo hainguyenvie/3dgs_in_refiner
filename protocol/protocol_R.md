@@ -134,3 +134,10 @@ phiên bản) trước khi dùng baseline đó cho Protocol C. Mọi Δ, kể c�
   DB avg với λo = 0.001: 29.77 vs paper 29.66 (+0.11). **Quyết định: Protocol C dùng λo = 0.001 cho DB.**
 - LPIPS của MCMC paper cao hơn hệ thống so với `metrics.py` của repo (vd. room 0.25 vs 0.171) → không so LPIPS
   MCMC với paper; chỉ PSNR/SSIM.
+- **28/09 — 3DGS cao hơn paper 2023 ở indoor/T&T** (kitchen +1.22, room +1.04, train +1.16; Mip360 avg +0.36,
+  T&T +0.79). Đối chiếu một lần chạy lại **độc lập** code 3DGS chính thức (MCMC paper Tab. 5, cột "3DGS (SfM)"):
+  kitchen 31.58 / room 31.70 / counter 29.12 / bonsai 32.32 vs ta 31.54 / 31.67 / 29.10 / 32.28 (±0.04);
+  train 21.94 / truck 25.40 vs ta 22.26 / 25.61 (+0.2–0.3). Outdoor ta thấp hơn bảng MCMC ~0.2–0.4 (bicycle 25.23
+  vs 25.64) nhưng khớp paper 3DGS (±0.12) — khả năng MCMC chạy 3DGS ở `-r 4` từ full-res thay vì `images_4`.
+  **Kết luận:** bảng 3DGS 2023 cũ so với code hiện tại (commit 54c035f); triển khai của ta nhất quán với chạy lại
+  độc lập. Không dùng số 3DGS 2023 làm baseline trong bảng mới; dùng số tự chạy (Protocol C).
