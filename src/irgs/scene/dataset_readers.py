@@ -199,7 +199,10 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
             print(f"xyz {xyz.shape}")
         except:
             xyz, rgb, _ = read_points3D_text(txt_path)
-        storePly(ply_path, xyz, rgb)
+        # [irgs] atomic write: IBGS rewrites this file on every run, concurrent runs on one scene raced on it
+        _tmp = f"{ply_path}.{os.getpid()}.tmp"
+        storePly(_tmp, xyz, rgb)
+        os.replace(_tmp, ply_path)
     try:
         pcd = fetchPly(ply_path)
     except:
