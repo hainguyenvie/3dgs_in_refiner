@@ -121,3 +121,8 @@ Lối ra (đang chạy, `m1w` = reg 1e-4 + neo + **trường chung**): thành ph
 (méo/intrinsics dư) → học riêng, **áp cho cả render test** (vẫn một stage, không ảnh nguồn); phần dư theo view được
 neo để không trôi. Nếu PSNR chuẩn của `m1w` tiến gần mức aligned của `m1`, method đạt cỡ **+0.2–0.3 dB trung bình**
 so với MCMC bằng render thường — đủ để vượt GADA ở outdoor một cách rõ ràng và không thua ở indoor.
+
+Kết quả `m1w` (29/09 tối): playroom **+0.49** (raw 30.48, áp trường chung 30.52), flowers −0.03 (trường chung quá lớn,
+áp bằng resample mất HF), bicycle/kitchen đang chạy. Supersampling khi áp trường chung **không** giúp (render 2× ≠ render 1×).
+Kết luận tạm: thành phần chung là thật nhưng cần **rasterizer có méo** để áp chính xác; với rasterizer pinhole hiện có,
+`m1n` là cấu hình an toàn và `m1w` thắng lớn ở scene có thành phần chung nhỏ (DB).

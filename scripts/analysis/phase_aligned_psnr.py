@@ -36,8 +36,9 @@ def main():
     except Exception:
         pass
     out = {}
-    for mdir in sys.argv[1:]:
-        d = Path(mdir) / "test" / "ours_30000"
+    for spec in sys.argv[1:]:
+        mdir, sub = (spec.split(":") + ["ours_30000"])[:2]      # "<model_dir>[:<method subdir>]"
+        d = Path(mdir) / "test" / sub
         names = sorted(os.listdir(d / "gt"))
         ps, pa, la, lb = [], [], [], []
         for nm in names:
@@ -49,10 +50,10 @@ def main():
             ps.append(psnr(R, G)); pa.append(psnr(Ra, G))
             if lp is not None:
                 lb.append(float(lp(R * 2 - 1, G * 2 - 1))); la.append(float(lp(Ra * 2 - 1, G * 2 - 1)))
-        out[mdir] = {"psnr": float(np.mean(ps)), "psnr_phase_aligned": float(np.mean(pa)),
+        out[spec] = {"psnr": float(np.mean(ps)), "psnr_phase_aligned": float(np.mean(pa)),
                      "lpips": float(np.mean(lb)) if lb else None, "lpips_phase_aligned": float(np.mean(la)) if la else None, "views": len(names)}
-        r = out[mdir]
-        print(f"{mdir}: PSNR {r['psnr']:.2f} -> aligned {r['psnr_phase_aligned']:.2f} (+{r['psnr_phase_aligned']-r['psnr']:.2f})"
+        r = out[spec]
+        print(f"{spec}: PSNR {r['psnr']:.2f} -> aligned {r['psnr_phase_aligned']:.2f} (+{r['psnr_phase_aligned']-r['psnr']:.2f})"
               + (f"  LPIPS {r['lpips']:.3f} -> {r['lpips_phase_aligned']:.3f}" if lb else ""), flush=True)
     p = ROOT / "reports" / "phase_aligned_psnr.json"
     prev = json.load(open(p)) if p.exists() else {}
