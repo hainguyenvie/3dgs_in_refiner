@@ -54,7 +54,8 @@ class PhaseWarp:
                 init = torch.tensor(v["A"], dtype=torch.float32) if (v is not None and init_from_fields) else torch.zeros(T, 2)
                 self.params[n] = torch.nn.Parameter(init.cuda())
                 if v is not None: self.ref[n] = (v["W"], v["H"])
-            self.opt = torch.optim.Adam(list(self.params.values()), lr=lr, eps=1e-15)
+            self.shared = torch.nn.Parameter(torch.zeros(T, 2).cuda()) if PHASE_SHARED else None   # camera-common component (applies to test too)
+            self.opt = torch.optim.Adam(list(self.params.values()) + ([self.shared] if self.shared is not None else []), lr=lr, eps=1e-15)
             print(f"[phase] learnable fields: {len(self.params)} views, lr={lr}, init_from_fields={init_from_fields}")
     def field(self, name, H, W):
         key = (name, H, W)
@@ -86,7 +87,7 @@ class PhaseWarp:
         if self.learn:
             if name not in self.params:
                 self.misses += 1; return image
-            A = self.params[name]
+            A = self.params[name] + (self.shared if self.shared is not None else 0)
             sc = torch.tensor([W / self.ref[name][0], H / self.ref[name][1]], device="cuda") if name in self.ref else 1.0
             f = ((self.basis(H, W) @ A) * sc).permute(2, 0, 1)
         else:
@@ -128,6 +129,7 @@ PHASE_REG = 0.0
 PHASE_START = 0
 PHASE_ZERO_MEAN = False
 PHASE_ANCHOR = []
+PHASE_SHARED = False
 SHIFT_TOL = None   # [phase-M2] (tol_px, grid_n, patch): per-patch min over sub-pixel shifts of the render
 
 def shift_tolerant_l1(image, gt, tol, n, patch):
@@ -387,6 +389,7 @@ if __name__ == "__main__":
     parser.add_argument("--phase_deg", type=int, default=3)         # polynomial degree of the learnable field (1 = affine)
     parser.add_argument("--phase_zero_mean", action="store_true")   # gauge fixing: subtract the across-view mean field each step
     parser.add_argument("--phase_anchor_every", type=int, default=0)  # gauge fixing: every N-th train view (sorted) keeps a zero field
+    parser.add_argument("--phase_shared", action="store_true")      # learn a camera-common field (added to every view; applied to test renders too)
     parser.add_argument("--color_affine", action="store_true")      # [M3] per-view learnable 3x4 colour affine on the render
     parser.add_argument("--color_lr", type=float, default=1e-3)
     parser.add_argument("--color_reg", type=float, default=1e-3)
@@ -408,7 +411,7 @@ if __name__ == "__main__":
     elif args.learn_phase:   # no fields file: build learnable fields once the scene (train view names) is known
         PHASE_ARGS = {"path": None, "scale": args.flow_scale, "lr": args.phase_lr, "deg": args.phase_deg, "anchor_every": args.phase_anchor_every}
         print(f"[phase] learnable fields from zero for all train views (no measured fields), lr={args.phase_lr}")
-    PHASE_REG = args.phase_reg; PHASE_START = args.phase_start; PHASE_ZERO_MEAN = args.phase_zero_mean
+    PHASE_REG = args.phase_reg; PHASE_START = args.phase_start; PHASE_ZERO_MEAN = args.phase_zero_mean; PHASE_SHARED = args.phase_shared
     
     if args.config is not None:
         # Load the configuration file
@@ -441,6 +444,10 @@ if __name__ == "__main__":
             mag = [float(((PHASE.basis(64, 96) @ a).norm(dim=-1)).mean()) for a in A]   # mean field magnitude per view (px, coarse grid)
             print(f"[phase] learned field magnitude px: median {float(torch.tensor(mag).median()):.3f} max {max(mag):.3f}")
             torch.save({k: v.detach().cpu() for k, v in PHASE.params.items()}, os.path.join(args.model_path, "phase_fields.pt"))
+            if PHASE.shared is not None:
+                sm = float((PHASE.basis(64, 96) @ PHASE.shared).norm(dim=-1).mean())
+                json.dump({"terms": PHASE.terms, "A": PHASE.shared.detach().cpu().tolist(), "mean_px_coarse": sm}, open(os.path.join(args.model_path, "phase_shared.json"), "w"))
+                print(f"[phase] shared field mean magnitude {sm:.3f} px (coarse grid)")
             with open(os.path.join(args.model_path, "phase_summary.json"), "w") as f:   # survives --quiet (stdout is silenced)
                 json.dump({"views": len(PHASE.params), "warped": PHASE.hits, "misses": PHASE.misses, "field_px_median": float(torch.tensor(mag).median()),
                            "field_px_max": max(mag), "lr": args.phase_lr, "reg": args.phase_reg, "start": args.phase_start,
