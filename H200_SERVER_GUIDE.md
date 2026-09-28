@@ -65,7 +65,7 @@ Có sẵn trên server: `git`, `tmux`, `wget`, `curl`, `unzip`, `kubectl`, `uv` 
 8 × H200 141 GB, **dùng chung với các project khác trong cùng một home** (cùng user, cùng PID
 namespace — thấy process của nhau).
 
-- **Phân bổ: cả 8 card (0–7)**, `RIT_CARDS` trong `infra.env`. Nhưng vẫn **chỉ vào card đang
+- **Phân bổ:** theo `RIT_CARDS` trong `infra.env`. **Từ 28/09 11:25 UTC: card 0, 1, 5, 6 giao cho project khác — chỉ dùng 2, 3, 4, 7.** Mọi launcher phải lấy danh sách card từ `RIT_CARDS`, không hardcode. Nhưng vẫn **chỉ vào card đang
   0 MiB** hoặc card mình đang giữ — job của project khác có thể xuất hiện bất cứ lúc nào.
 - Xem ai đang giữ card (đường dẫn process cho biết project chủ):
 
