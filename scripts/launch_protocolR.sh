@@ -7,7 +7,11 @@
 # Quality numbers are what Protocol R is for; timings of co-scheduled jobs are contended (noted in reports).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-JOBS="$1"; IFS=, read -ra CARDS <<< "${CARDS:-0,1,2,3,4,5,6,7}"; SLOTS="${SLOTS:-2}"
+JOBS="$1"
+# card allowance: CARDS env > RIT_CARDS from infra.env (server copy or local) > refuse
+[ -z "${CARDS:-}" ] && [ -f "$ROOT/infra.env" ] && CARDS=$(grep -E "^RIT_CARDS=" "$ROOT/infra.env" | cut -d= -f2 | cut -d" " -f1 | tr -d "#")
+[ -z "${CARDS:-}" ] && { echo "set CARDS=... (or RIT_CARDS in infra.env); refusing to guess"; exit 2; }
+IFS=, read -ra CARDS <<< "$CARDS"; SLOTS="${SLOTS:-2}"
 mkdir -p "$ROOT/logs/protocolR"
 Q=()                                   # queue id -> card
 for s in $(seq 1 "$SLOTS"); do for c in "${CARDS[@]}"; do Q+=("$c"); done; done
