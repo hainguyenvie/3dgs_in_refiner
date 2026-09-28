@@ -235,6 +235,14 @@ def render_set(model_path, name, iteration, views, scene, gaussians, pipeline, a
         normal = (normal.detach().cpu()+1)/2
         normal = normal.detach().cpu().numpy()
         normal = (normal * 255).clip(0, 255).astype(np.uint8)
+        if name == 'test' and getattr(args, "dump_warps", False):   # [irgs] per-source warps + validity masks
+            wd, md = os.path.join(model_path, name, f"ours_{iteration}", "warps"), os.path.join(model_path, name, f"ours_{iteration}", "warpmask")
+            makedirs(wd, exist_ok=True); makedirs(md, exist_ok=True)
+            _w = out["warped_image"].view(-1, 3, H, W); _f = out["cam_feat"].view(-1, 4, H, W)
+            for k in range(_w.shape[0]):
+                torchvision.utils.save_image(_w[k].clamp(0, 1), os.path.join(wd, f"{view.image_name}_s{k}.png"))
+                torchvision.utils.save_image((_f[k].sum(0, keepdim=True) > 0).float(), os.path.join(md, f"{view.image_name}_s{k}.png"))
+            torchvision.utils.save_image((out["min_depth_diff"] < 0.999).float().view(1, H, W), os.path.join(md, f"{view.image_name}_validwarp.png"))
         if name == 'test':
             torchvision.utils.save_image(gt, os.path.join(gts_path, view.image_name + ".png"))
             torchvision.utils.save_image(rendering, os.path.join(render_path, view.image_name + ".png"))
@@ -410,6 +418,7 @@ if __name__ == "__main__":
     # -------------- My added paramaters -----------------
     parser.add_argument('--render_geo', action='store_true')
     parser.add_argument('--src_image_ext', type=str, default="jpg")
+    parser.add_argument('--dump_warps', action='store_true')  # [irgs]
 
 
     args = get_combined_args(parser)

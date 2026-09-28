@@ -1,0 +1,405 @@
+{
+ "bicycle": {
+  "group": "outdoor",
+  "psnr_raw": 25.71350112915039,
+  "psnr_fin": 26.059447708129884,
+  "psnr_raw_ca": 26.16601997375488,
+  "psnr_fin_ca": 26.359761428833007,
+  "band_share_raw_err": [
+   0.381,
+   0.247,
+   0.081,
+   0.291
+  ],
+  "band_share_residual": [
+   0.163,
+   0.178,
+   0.12,
+   0.539
+  ],
+  "band_err_reduction": [
+   -0.002,
+   0.015,
+   0.093,
+   0.376
+  ],
+  "band_abs_reduction_share": [
+   -0.006,
+   0.031,
+   0.063,
+   0.912
+  ]
+ },
+ "flowers": {
+  "group": "outdoor",
+  "psnr_raw": 21.97659683227539,
+  "psnr_fin": 22.34336991743608,
+  "psnr_raw_ca": 22.115126609802246,
+  "psnr_fin_ca": 22.505832845514472,
+  "band_share_raw_err": [
+   0.459,
+   0.352,
+   0.087,
+   0.102
+  ],
+  "band_share_residual": [
+   0.414,
+   0.323,
+   0.062,
+   0.202
+  ],
+  "band_err_reduction": [
+   0.04,
+   0.066,
+   0.101,
+   0.244
+  ],
+  "band_abs_reduction_share": [
+   0.246,
+   0.308,
+   0.117,
+   0.329
+  ]
+ },
+ "garden": {
+  "group": "outdoor",
+  "psnr_raw": 27.257341702779133,
+  "psnr_fin": 27.57351303100586,
+  "psnr_raw_ca": 27.40212146441142,
+  "psnr_fin_ca": 27.753708918889362,
+  "band_share_raw_err": [
+   0.408,
+   0.235,
+   0.106,
+   0.251
+  ],
+  "band_share_residual": [
+   0.243,
+   0.137,
+   0.091,
+   0.529
+  ],
+  "band_err_reduction": [
+   -0.006,
+   -0.004,
+   0.064,
+   0.279
+  ],
+  "band_abs_reduction_share": [
+   -0.036,
+   -0.013,
+   0.093,
+   0.956
+  ]
+ },
+ "stump": {
+  "group": "outdoor",
+  "psnr_raw": 27.215081930160522,
+  "psnr_fin": 27.309861540794373,
+  "psnr_raw_ca": 27.465676069259644,
+  "psnr_fin_ca": 27.63722324371338,
+  "band_share_raw_err": [
+   0.306,
+   0.38,
+   0.125,
+   0.188
+  ],
+  "band_share_residual": [
+   0.356,
+   0.314,
+   0.113,
+   0.217
+  ],
+  "band_err_reduction": [
+   0.039,
+   -0.015,
+   0.029,
+   0.047
+  ],
+  "band_abs_reduction_share": [
+   0.634,
+   -0.303,
+   0.195,
+   0.474
+  ]
+ },
+ "treehill": {
+  "group": "outdoor",
+  "psnr_raw": 22.915404955546062,
+  "psnr_fin": 23.05960856543647,
+  "psnr_raw_ca": 23.501720958285862,
+  "psnr_fin_ca": 23.434641732109917,
+  "band_share_raw_err": [
+   0.347,
+   0.325,
+   0.108,
+   0.22
+  ],
+  "band_share_residual": [
+   0.302,
+   0.278,
+   0.094,
+   0.326
+  ],
+  "band_err_reduction": [
+   -0.018,
+   -0.093,
+   0.051,
+   0.244
+  ],
+  "band_abs_reduction_share": [
+   -0.276,
+   -1.326,
+   0.241,
+   2.361
+  ]
+ },
+ "bonsai": {
+  "group": "indoor",
+  "psnr_raw": 30.98723988919645,
+  "psnr_fin": 34.975953230986725,
+  "psnr_raw_ca": 31.530349473695498,
+  "psnr_fin_ca": 35.06984473563529,
+  "band_share_raw_err": [
+   0.104,
+   0.187,
+   0.16,
+   0.549
+  ],
+  "band_share_residual": [
+   0.049,
+   0.125,
+   0.141,
+   0.685
+  ],
+  "band_err_reduction": [
+   0.209,
+   0.426,
+   0.6,
+   0.852
+  ],
+  "band_abs_reduction_share": [
+   0.033,
+   0.12,
+   0.144,
+   0.704
+  ]
+ },
+ "counter": {
+  "group": "indoor",
+  "psnr_raw": 28.286490821838377,
+  "psnr_fin": 30.648429997762044,
+  "psnr_raw_ca": 28.373590087890626,
+  "psnr_fin_ca": 30.734651883443195,
+  "band_share_raw_err": [
+   0.114,
+   0.259,
+   0.257,
+   0.369
+  ],
+  "band_share_residual": [
+   0.081,
+   0.266,
+   0.262,
+   0.391
+  ],
+  "band_err_reduction": [
+   0.172,
+   0.333,
+   0.427,
+   0.488
+  ],
+  "band_abs_reduction_share": [
+   0.05,
+   0.218,
+   0.278,
+   0.455
+  ]
+ },
+ "kitchen": {
+  "group": "indoor",
+  "psnr_raw": 30.522312327793667,
+  "psnr_fin": 32.09723014831543,
+  "psnr_raw_ca": 30.818238612583706,
+  "psnr_fin_ca": 32.29659184047154,
+  "band_share_raw_err": [
+   0.189,
+   0.265,
+   0.152,
+   0.394
+  ],
+  "band_share_residual": [
+   0.12,
+   0.202,
+   0.108,
+   0.57
+  ],
+  "band_err_reduction": [
+   0.052,
+   0.095,
+   0.269,
+   0.624
+  ],
+  "band_abs_reduction_share": [
+   0.03,
+   0.078,
+   0.127,
+   0.764
+  ]
+ },
+ "room": {
+  "group": "indoor",
+  "psnr_raw": 31.29655617934007,
+  "psnr_fin": 32.67512443738106,
+  "psnr_raw_ca": 31.5792049016708,
+  "psnr_fin_ca": 33.014734708345856,
+  "band_share_raw_err": [
+   0.135,
+   0.158,
+   0.144,
+   0.563
+  ],
+  "band_share_residual": [
+   0.086,
+   0.145,
+   0.161,
+   0.608
+  ],
+  "band_err_reduction": [
+   0.083,
+   0.167,
+   0.259,
+   0.261
+  ],
+  "band_abs_reduction_share": [
+   0.051,
+   0.119,
+   0.169,
+   0.662
+  ]
+ },
+ "train": {
+  "group": "tnt",
+  "psnr_raw": 20.823071655474212,
+  "psnr_fin": 23.691266913163034,
+  "psnr_raw_ca": 23.612575882359554,
+  "psnr_fin_ca": 24.804153693349736,
+  "band_share_raw_err": [
+   0.1,
+   0.097,
+   0.062,
+   0.741
+  ],
+  "band_share_residual": [
+   0.048,
+   0.055,
+   0.041,
+   0.856
+  ],
+  "band_err_reduction": [
+   0.139,
+   0.223,
+   0.349,
+   0.676
+  ],
+  "band_abs_reduction_share": [
+   0.025,
+   0.039,
+   0.039,
+   0.897
+  ]
+ },
+ "truck": {
+  "group": "tnt",
+  "psnr_raw": 25.434829652309418,
+  "psnr_fin": 26.0961571931839,
+  "psnr_raw_ca": 25.658238172531128,
+  "psnr_fin_ca": 26.263013124465942,
+  "band_share_raw_err": [
+   0.308,
+   0.252,
+   0.126,
+   0.313
+  ],
+  "band_share_residual": [
+   0.131,
+   0.152,
+   0.149,
+   0.567
+  ],
+  "band_err_reduction": [
+   0.045,
+   0.085,
+   0.153,
+   0.325
+  ],
+  "band_abs_reduction_share": [
+   0.088,
+   0.137,
+   0.123,
+   0.651
+  ]
+ },
+ "drjohnson": {
+  "group": "db",
+  "psnr_raw": 29.346969084306195,
+  "psnr_fin": 29.50809403621789,
+  "psnr_raw_ca": 29.618396065451883,
+  "psnr_fin_ca": 29.76838117657286,
+  "band_share_raw_err": [
+   0.061,
+   0.166,
+   0.183,
+   0.59
+  ],
+  "band_share_residual": [
+   0.256,
+   0.263,
+   0.133,
+   0.349
+  ],
+  "band_err_reduction": [
+   0.04,
+   0.023,
+   0.02,
+   0.019
+  ],
+  "band_abs_reduction_share": [
+   0.116,
+   0.18,
+   0.17,
+   0.534
+  ]
+ },
+ "playroom": {
+  "group": "db",
+  "psnr_raw": 30.321065310774177,
+  "psnr_fin": 30.340596889627392,
+  "psnr_raw_ca": 31.02513964422818,
+  "psnr_fin_ca": 31.06542291312382,
+  "band_share_raw_err": [
+   0.091,
+   0.18,
+   0.17,
+   0.558
+  ],
+  "band_share_residual": [
+   0.318,
+   0.122,
+   0.052,
+   0.507
+  ],
+  "band_err_reduction": [
+   0.014,
+   0.01,
+   0.009,
+   0.004
+  ],
+  "band_abs_reduction_share": [
+   0.185,
+   0.283,
+   0.233,
+   0.299
+  ]
+ }
+}
