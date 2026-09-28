@@ -9,7 +9,9 @@ case "$SCENE" in train|truck) SRC=$ROOT/data/tandt_db/tandt/$SCENE;; drjohnson|p
 OUT=$ROOT/outputs/p4/$TAG; mkdir -p "$OUT" "$ROOT/logs/p4"
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES="${G:?}" OMP_NUM_THREADS="${OMP_NUM_THREADS:-4}"
 cd "$REPO"
-CFG=$REPO/configs/$SCENE.json; RES=$(python3 -c "import json;print(json.load(open('$CFG'))['resolution'])")
+# author config, or our config for scenes the MCMC repo lacks (flowers, treehill) / fixes (playroom opacity_reg)
+CFG=$ROOT/configs/mcmc/$SCENE.json; [ -f "$CFG" ] || CFG=$REPO/configs/$SCENE.json
+RES=$(python3 -c "import json;print(json.load(open('$CFG'))['resolution'])")
 FIELDS=$ROOT/data/p4/${SCENE}_fields.json; [ "${NO_FIELDS:-0}" = 1 ] && FIELDS=none
 echo "scene=$SCENE scale=$SCALE tag=$TAG fields=$FIELDS extra=${EXTRA:-} utc=$(date -u +%FT%TZ) code_md5=$(md5sum $ROOT/src/phase/train_mcmc_phase.py | cut -c1-12)" | tee "$OUT/run_meta.txt"
 [ -f "$OUT/point_cloud/iteration_30000/point_cloud.ply" ] || \
