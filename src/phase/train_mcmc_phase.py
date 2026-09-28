@@ -96,6 +96,23 @@ class PhaseWarp:
 PHASE = None
 PHASE_REG = 0.0
 PHASE_START = 0
+SHIFT_TOL = None   # [phase-M2] (tol_px, grid_n, patch): per-patch min over sub-pixel shifts of the render
+
+def shift_tolerant_l1(image, gt, tol, n, patch):
+    """L1 where each PATCH may pick the sub-pixel shift (n x n grid in [-tol, tol] px) of the render that fits best.
+    Lets the model keep sharp content whose true location in this photo is off by < tol px (non-rigid /
+    per-view local inconsistency) instead of being pushed towards a blurred average."""
+    _, H, W = image.shape
+    yy, xx = torch.meshgrid(torch.arange(H, device="cuda", dtype=torch.float32), torch.arange(W, device="cuda", dtype=torch.float32), indexing="ij")
+    offs = torch.linspace(-tol, tol, n, device="cuda")
+    errs = []
+    for dy in offs:
+        for dx in offs:
+            gx = (xx + dx) / (W - 1) * 2 - 1; gy = (yy + dy) / (H - 1) * 2 - 1
+            w = F.grid_sample(image[None], torch.stack([gx, gy], -1)[None], mode="bicubic", padding_mode="border", align_corners=True)[0]
+            errs.append(F.avg_pool2d((w - gt).abs().mean(0, keepdim=True)[None], patch, ceil_mode=True)[0, 0])
+    E = torch.stack(errs)                       # S x Hp x Wp
+    return E.min(0).values.mean()
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from):
     if dataset.cap_max == -1:
@@ -164,7 +181,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         # Loss  ([phase] compare the render displaced by the view's phase field with the untouched photo)
         gt_image = viewpoint_cam.original_image.cuda()
         image_l = PHASE(image, viewpoint_cam.image_name) if PHASE is not None else image
-        Ll1 = l1_loss(image_l, gt_image)
+        if SHIFT_TOL is not None and iteration >= SHIFT_TOL[3]:
+            Ll1 = shift_tolerant_l1(image_l, gt_image, *SHIFT_TOL[:3])
+        else:
+            Ll1 = l1_loss(image_l, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image_l, gt_image))
         if PHASE is not None and PHASE.learn:
             loss = loss + PHASE_REG * PHASE.reg()
@@ -304,7 +324,14 @@ if __name__ == "__main__":
     parser.add_argument("--phase_reg", type=float, default=1e-4)    # weight on mean squared coefficient (px^2)
     parser.add_argument("--phase_start", type=int, default=1000)    # iterations before the field starts moving
     parser.add_argument("--phase_init_zero", action="store_true")   # ignore the measured fields, start at identity
+    parser.add_argument("--shift_tol", type=float, default=0.0)     # [M2] > 0: per-patch min over sub-pixel shifts (px)
+    parser.add_argument("--shift_grid", type=int, default=3)
+    parser.add_argument("--shift_patch", type=int, default=32)
+    parser.add_argument("--shift_start", type=int, default=7000)   # apply once geometry has settled
     args = parser.parse_args(sys.argv[1:])
+    if args.shift_tol > 0:
+        SHIFT_TOL = (args.shift_tol, args.shift_grid, args.shift_patch, args.shift_start)
+        print(f"[phase-M2] shift-tolerant L1: tol={args.shift_tol}px grid={args.shift_grid} patch={args.shift_patch} from iter {args.shift_start}")
     if args.view_flow:
         PHASE = PhaseWarp(args.view_flow, args.flow_scale, learn=args.learn_phase, lr=args.phase_lr, init_from_fields=not args.phase_init_zero)
         PHASE_REG = args.phase_reg; PHASE_START = args.phase_start
