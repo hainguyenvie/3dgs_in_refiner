@@ -126,6 +126,7 @@ PHASE = None
 PHASE_ARGS = None
 PHASE_REG = 0.0
 PHASE_START = 0
+PHASE_ZERO_MEAN = False
 SHIFT_TOL = None   # [phase-M2] (tol_px, grid_n, patch): per-patch min over sub-pixel shifts of the render
 
 def shift_tolerant_l1(image, gt, tol, n, patch):
@@ -262,6 +263,10 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 gaussians.optimizer.zero_grad(set_to_none = True)
                 if PHASE is not None and PHASE.opt is not None and iteration >= PHASE_START:
                     PHASE.opt.step()
+                    if PHASE_ZERO_MEAN:   # gauge fixing: no common (global) component across views
+                        with torch.no_grad():
+                            P = torch.stack(list(PHASE.params.values())); m = P.mean(0, keepdim=True)
+                            for k, p in PHASE.params.items(): p.sub_(m[0])
                 if PHASE is not None and PHASE.opt is not None:
                     PHASE.opt.zero_grad(set_to_none=True)
                 if COLOR is not None:
@@ -368,6 +373,7 @@ if __name__ == "__main__":
     parser.add_argument("--phase_start", type=int, default=1000)    # iterations before the field starts moving
     parser.add_argument("--phase_init_zero", action="store_true")   # ignore the measured fields, start at identity
     parser.add_argument("--phase_deg", type=int, default=3)         # polynomial degree of the learnable field (1 = affine)
+    parser.add_argument("--phase_zero_mean", action="store_true")   # gauge fixing: subtract the across-view mean field each step
     parser.add_argument("--color_affine", action="store_true")      # [M3] per-view learnable 3x4 colour affine on the render
     parser.add_argument("--color_lr", type=float, default=1e-3)
     parser.add_argument("--color_reg", type=float, default=1e-3)
@@ -389,7 +395,7 @@ if __name__ == "__main__":
     elif args.learn_phase:   # no fields file: build learnable fields once the scene (train view names) is known
         PHASE_ARGS = {"path": None, "scale": args.flow_scale, "lr": args.phase_lr, "deg": args.phase_deg}
         print(f"[phase] learnable fields from zero for all train views (no measured fields), lr={args.phase_lr}")
-    PHASE_REG = args.phase_reg; PHASE_START = args.phase_start
+    PHASE_REG = args.phase_reg; PHASE_START = args.phase_start; PHASE_ZERO_MEAN = args.phase_zero_mean
     
     if args.config is not None:
         # Load the configuration file
