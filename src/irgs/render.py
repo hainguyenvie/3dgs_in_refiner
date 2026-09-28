@@ -251,8 +251,11 @@ def render_set(model_path, name, iteration, views, scene, gaussians, pipeline, a
                 torchvision.utils.save_image(aggregate_image, os.path.join(render_aggregate_path, view.image_name + ".png"))
                 torchvision.utils.save_image(predicted_residual_vis, os.path.join(residual_path, view.image_name + ".png"))
         else:
-            rendering_np = (rendering.permute(1,2,0).clamp(0,1)[:,:,[2,1,0]]*255).detach().cpu().numpy().astype(np.uint8)
-            cv2.imwrite(os.path.join(render_path, view.image_name + ".jpg"), rendering_np)
+            if getattr(args, "train_render_png", False):   # [irgs] lossless train renders (synthetic-world experiments)
+                torchvision.utils.save_image(rendering.clamp(0, 1), os.path.join(render_path, view.image_name + ".png"))
+            else:
+                rendering_np = (rendering.permute(1,2,0).clamp(0,1)[:,:,[2,1,0]]*255).detach().cpu().numpy().astype(np.uint8)
+                cv2.imwrite(os.path.join(render_path, view.image_name + ".jpg"), rendering_np)
         plt.imsave(os.path.join(render_depth_path, view.image_name + ".jpg"), depth_color)
         plt.imsave(os.path.join(render_normal_path, view.image_name + ".jpg"), normal)
 
@@ -419,6 +422,7 @@ if __name__ == "__main__":
     parser.add_argument('--render_geo', action='store_true')
     parser.add_argument('--src_image_ext', type=str, default="jpg")
     parser.add_argument('--dump_warps', action='store_true')  # [irgs]
+    parser.add_argument('--train_render_png', action='store_true')  # [irgs]
 
 
     args = get_combined_args(parser)
