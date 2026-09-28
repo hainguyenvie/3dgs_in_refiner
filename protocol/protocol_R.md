@@ -130,5 +130,7 @@ phiên bản) trước khi dùng baseline đó cho Protocol C. Mọi Δ, kể c�
   **thiếu `opacity_reg: 0.001`** (drjohnson có), trong khi paper nói Deep Blending dùng λo = 0.001 → run r1 (đúng
   theo repo) chạy λo = 0.01. Run chẩn đoán `playroom_oreg001` (`EXTRA_TRAIN='--opacity_reg 0.001'`). r1 giữ nguyên là
   "theo repo"; nếu oreg001 về sát paper thì Protocol C dùng λo = 0.001 cho cả hai scene DB và ghi rõ.
+  **Kết quả:** oreg001 = 30.03 / 0.909 / 0.229 (vs r1 29.23; paper 30.33) → lỗi config giải thích ~0.8/1.1 dB.
+  DB avg với λo = 0.001: 29.77 vs paper 29.66 (+0.11). **Quyết định: Protocol C dùng λo = 0.001 cho DB.**
 - LPIPS của MCMC paper cao hơn hệ thống so với `metrics.py` của repo (vd. room 0.25 vs 0.171) → không so LPIPS
   MCMC với paper; chỉ PSNR/SSIM.
