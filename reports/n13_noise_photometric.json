@@ -1,0 +1,83 @@
+{
+ "bicycle": {
+  "gt_noise_sigma": 0.015145182609558105,
+  "psnr_ceiling_noise": 36.394509717873326,
+  "train_psnr_raw": 27.40622969234691,
+  "train_psnr_global_affine": 27.42271697100471,
+  "train_psnr_perview_affine": 27.660801001156077,
+  "perview_minus_global": 0.23808403015136648,
+  "views": 85
+ },
+ "garden": {
+  "gt_noise_sigma": 0.014668930787593126,
+  "psnr_ceiling_noise": 36.67203081102955,
+  "train_psnr_raw": 30.63469856168017,
+  "train_psnr_global_affine": 30.641581994515878,
+  "train_psnr_perview_affine": 30.742883611608434,
+  "perview_minus_global": 0.10130161709255603,
+  "views": 81
+ },
+ "stump": {
+  "gt_noise_sigma": 0.007732166675850749,
+  "psnr_ceiling_noise": 42.233975856392576,
+  "train_psnr_raw": 32.1122539173473,
+  "train_psnr_global_affine": 32.11634896018288,
+  "train_psnr_perview_affine": 32.232639659534804,
+  "perview_minus_global": 0.11629069935192149,
+  "views": 55
+ },
+ "counter": {
+  "gt_noise_sigma": 0.0037176909390836954,
+  "psnr_ceiling_noise": 48.59453434093025,
+  "train_psnr_raw": 31.014981097266787,
+  "train_psnr_global_affine": 31.033149664742606,
+  "train_psnr_perview_affine": 31.099126307169595,
+  "perview_minus_global": 0.06597664242698897,
+  "views": 105
+ },
+ "bonsai": {
+  "gt_noise_sigma": 0.003565069753676653,
+  "psnr_ceiling_noise": 48.95863936762801,
+  "train_psnr_raw": 33.718091666698456,
+  "train_psnr_global_affine": 33.712179481983185,
+  "train_psnr_perview_affine": 34.115543976426125,
+  "perview_minus_global": 0.40336449444293976,
+  "views": 128
+ },
+ "kitchen": {
+  "gt_noise_sigma": 0.004379434045404196,
+  "psnr_ceiling_noise": 47.171640195575876,
+  "train_psnr_raw": 33.5726749388898,
+  "train_psnr_global_affine": 33.586425249693825,
+  "train_psnr_perview_affine": 33.79622657963487,
+  "perview_minus_global": 0.20980132994104395,
+  "views": 122
+ },
+ "room": {
+  "gt_noise_sigma": 0.003540674108080566,
+  "psnr_ceiling_noise": 49.01828089762866,
+  "train_psnr_raw": 34.843744474298816,
+  "train_psnr_global_affine": 34.84975158467012,
+  "train_psnr_perview_affine": 35.07024436838486,
+  "perview_minus_global": 0.22049278371473946,
+  "views": 136
+ },
+ "train": {
+  "gt_noise_sigma": 0.00977230304852128,
+  "psnr_ceiling_noise": 40.200061471999426,
+  "train_psnr_raw": 25.61646591533314,
+  "train_psnr_global_affine": 25.611082568313137,
+  "train_psnr_perview_affine": 26.266658609563653,
+  "perview_minus_global": 0.6555760412505158,
+  "views": 132
+ },
+ "truck": {
+  "gt_noise_sigma": 0.010195071343332529,
+  "psnr_ceiling_noise": 39.83219461516219,
+  "train_psnr_raw": 28.203661528500643,
+  "train_psnr_global_affine": 28.203071230108087,
+  "train_psnr_perview_affine": 28.28839282122525,
+  "perview_minus_global": 0.08532159111716453,
+  "views": 110
+ }
+}
