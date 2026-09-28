@@ -3,6 +3,8 @@
 #
 #   G=<card> setsid nohup bash scripts/run_ibgs.sh <scene> [tag] > logs/ibgs_<scene>.log 2>&1 < /dev/null &
 #   SMOKE=1 G=7 bash scripts/run_ibgs.sh bicycle smoke      # 800-iter crash test, never a result
+#   PRETRAINED=1 G=0 bash scripts/run_ibgs.sh bicycle pre   # render + score the AUTHORS' released checkpoint
+#     (checks env/renderer/metric independent of training noise; originals are symlinked, never modified)
 #
 # Flags per scene group are copied from third_party/ibgs/exp_script.py (commit in run_meta.txt).
 # Only deviation: render.py gets --skip_train (train-view renders do not enter the test metric).
@@ -26,6 +28,16 @@ if [ "${SMOKE:-0}" = 1 ]; then
 fi
 OUT="$ROOT/outputs/protocolR/ibgs/${SCENE}_${TAG}"
 mkdir -p "$OUT" "$ROOT/logs"
+if [ "${PRETRAINED:-0}" = 1 ]; then
+  case "$SCENE" in
+    train|truck) PRE_DS=tanks ;; drjohnson|playroom) PRE_DS=deep_blending ;; *) PRE_DS=mip_nerf_360 ;;
+  esac
+  PRE="$ROOT/checkpoints/ibgs_pretrained/output/$PRE_DS/$SCENE"
+  [ -d "$PRE/point_cloud/iteration_30000" ] || { echo "no pretrained model at $PRE"; exit 3; }
+  for f in cfg_args config.json multi_view.json multi_view_test.json input.ply point_cloud app_model color_aggregate_checkpoint; do
+    [ -e "$PRE/$f" ] && [ ! -e "$OUT/$f" ] && ln -s "$PRE/$f" "$OUT/$f"
+  done
+fi
 
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES="${G:?set G=<card>}"
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-8}"
