@@ -132,7 +132,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     global PHASE
     if PHASE_ARGS is not None and PHASE is None:   # [phase] RAFT-free learnable fields for all train views
         PHASE = PhaseWarp(PHASE_ARGS["path"], PHASE_ARGS["scale"], learn=True, lr=PHASE_ARGS["lr"], init_from_fields=False,
-                          names=[c.image_name for c in scene.getTrainCameras()])
+                          names=[c.image_name for c in scene.getTrainCameras()], deg=PHASE_ARGS.get("deg", 3))
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
         gaussians.restore(model_params, opt)
@@ -334,6 +334,7 @@ if __name__ == "__main__":
     parser.add_argument("--phase_reg", type=float, default=1e-4)    # weight on mean squared coefficient (px^2)
     parser.add_argument("--phase_start", type=int, default=1000)    # iterations before the field starts moving
     parser.add_argument("--phase_init_zero", action="store_true")   # ignore the measured fields, start at identity
+    parser.add_argument("--phase_deg", type=int, default=3)         # polynomial degree of the learnable field (1 = affine)
     parser.add_argument("--shift_tol", type=float, default=0.0)     # [M2] > 0: per-patch min over sub-pixel shifts (px)
     parser.add_argument("--shift_grid", type=int, default=3)
     parser.add_argument("--shift_patch", type=int, default=32)
@@ -346,7 +347,7 @@ if __name__ == "__main__":
         PHASE = PhaseWarp(args.view_flow, args.flow_scale, learn=args.learn_phase, lr=args.phase_lr, init_from_fields=not args.phase_init_zero)
         print(f"[phase] view_flow={args.view_flow} scale={args.flow_scale} views={len(PHASE.views)} learn={args.learn_phase}")
     elif args.learn_phase:   # no fields file: build learnable fields once the scene (train view names) is known
-        PHASE_ARGS = {"path": None, "scale": args.flow_scale, "lr": args.phase_lr}
+        PHASE_ARGS = {"path": None, "scale": args.flow_scale, "lr": args.phase_lr, "deg": args.phase_deg}
         print(f"[phase] learnable fields from zero for all train views (no measured fields), lr={args.phase_lr}")
     PHASE_REG = args.phase_reg; PHASE_START = args.phase_start
     
