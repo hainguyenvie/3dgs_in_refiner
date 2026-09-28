@@ -31,6 +31,8 @@ def concentration(err, m):
 
 def binned(err, cond, m, qs=QS):
     v = cond[m > 0].flatten(); e = err[m > 0].flatten()
+    if v.numel() < 2000:
+        return None
     edges = torch.quantile(v[::13], torch.tensor(qs, device=v.device))
     out = []
     for lo, hi in zip(edges[:-1], edges[1:]):
@@ -61,10 +63,12 @@ def main():
             grad = F.max_pool2d(grad, 5, 1, 2)                           # dilate: pixels near an edge
             e_w = ((w0 - gt) ** 2).mean(1, keepdim=True); e_raw = ((raw - gt) ** 2).mean(1, keepdim=True)
             acc["conc_w"].append(concentration(e_w, m0)); acc["conc_raw"].append(concentration(e_raw, m0))
-            acc["grad_w"].append(binned(e_w, grad, m0)); acc["grad_raw"].append(binned(e_raw, grad, m0))
+            bw, br = binned(e_w, grad, m0), binned(e_raw, grad, m0)
+            if bw is not None: acc["grad_w"].append(bw); acc["grad_raw"].append(br)
             m01 = m0 * m1
             dis = ((w0 - w1) ** 2).mean(1, keepdim=True)
-            acc["dis_w"].append(binned(e_w, dis, m01)); acc["dis_raw"].append(binned(e_raw, dis, m01))
+            bw, br = binned(e_w, dis, m01), binned(e_raw, dis, m01)
+            if bw is not None: acc["dis_w"].append(bw); acc["dis_raw"].append(br)
         def avg_bins(lst):
             return [{k: float(np.mean([b[i][k] for b in lst])) for k in lst[0][i] if lst[0][i][k] is not None} for i in range(len(lst[0]))]
         r = {"views": len(acc["conc_w"]),
