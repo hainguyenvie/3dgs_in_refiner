@@ -18,5 +18,6 @@ echo "scene=$SCENE scale=$SCALE tag=$TAG fields=$FIELDS extra=${EXTRA:-} utc=$(d
   $PY -u $ROOT/src/phase/train_mcmc_phase.py -s "$SRC" -m "$OUT" --config "$CFG" --eval --init_type sfm --quiet \
       --view_flow $FIELDS --flow_scale $SCALE ${EXTRA:-}
 [ -d "$OUT/test/ours_30000/renders" ] || $PY -u render.py -s "$SRC" -m "$OUT" --iteration 30000 -r $RES --eval --skip_train --quiet
+[ -f "$OUT/color_affine.json" ] && [ ! -d "$OUT/test/ours_30000_m3/renders" ] && $PY $ROOT/scripts/analysis/m3_apply_test.py "$OUT" "$SRC" 3
 [ -f "$OUT/results.json" ] || $PY -u metrics.py -m "$OUT"
 cat "$OUT/results.json"; echo JOB_DONE
