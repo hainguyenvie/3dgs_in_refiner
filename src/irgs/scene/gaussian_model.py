@@ -705,7 +705,9 @@ class GaussianModel:
         cov = L @ L.transpose(1, 2)
         op_sigmoid = lambda x, k=100, x0=0.995: 1 / (1 + torch.exp(-k * (x - x0)))
         noise = torch.randn_like(self._xyz) * op_sigmoid(1 - self.get_opacity) * noise_lr * xyz_lr
-        self._xyz.add_(torch.bmm(cov, noise.unsqueeze(-1)).squeeze(-1))
+        step = torch.bmm(cov, noise.unsqueeze(-1)).squeeze(-1)
+        # a Gaussian whose covariance overflowed would poison xyz for good; drop its step instead
+        self._xyz.add_(torch.nan_to_num(step, nan=0.0, posinf=0.0, neginf=0.0))
 
     def add_densification_stats(self, viewspace_point_tensor, viewspace_point_tensor_abs, update_filter):
         self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter,:2], dim=-1, keepdim=True)
