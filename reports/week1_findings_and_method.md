@@ -56,7 +56,7 @@ Mục tiêu số: raw của ta ≥ final của GADA (Mip360 28.62 / T&T 24.92 / 
 
 | Probe | Câu hỏi | Cách làm (≤ 1 ngày GPU) | Tín hiệu để đi tiếp |
 |---|---|---|---|
-| **P3 (giờ)** | Bao nhiêu phần lệch là cứng (pose) vs phi cứng? | Fit 6-DoF + radial cho trường flow E3 trên train view (đã có), đo residual rms; so với E7 curve | Nếu phần cứng ≥ 0.15 px ⇒ M1 đáng ≥ 1 dB; nếu < 0.08 px ⇒ dồn sang M2 |
+| **P3 (xong)** | Bao nhiêu phần lệch là trơn theo view vs cục bộ? | Fit đa thức bậc 3 theo view vào flow E3 trên train view | **Kết quả: outdoor 66–81% là trơn** (residual 0.06–0.11 px), phần trơn rms 0.16–0.18 px ⇒ M1 đáng làm (~1 dB theo E7). Indoor: không có thành phần này |
 | **P1 (1 ngày)** | M1 thật sự làm Gaussian sắc lên? | Đóng băng MCMC bicycle/garden/counter; ước lượng hiệu chỉnh view bằng flow warp láng giềng (post-hoc), ghi lại pose/méo; **train lại từ đầu** với pose đã sửa; đo raw PSNR, σ_eff, HF share trên test (pose test không đổi) | raw +≥0.3 dB **và** σ_eff giảm ⇒ M1 có thật. Đối chứng: cùng quy trình nhưng sửa bằng gradient của model (kiểu CamP) |
 | **P2 (1 ngày)** | M2 giữ được HF? | Train MCMC với loss dung sai dịch (patch, ±0.5 px) vs L1/SSIM; cùng seed/budget | σ_eff giảm, PSNR không giảm; ảnh không ghosting |
 

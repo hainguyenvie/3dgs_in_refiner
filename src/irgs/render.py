@@ -244,6 +244,8 @@ def render_set(model_path, name, iteration, views, scene, gaussians, pipeline, a
                 torchvision.utils.save_image((_f[k].sum(0, keepdim=True) > 0).float(), os.path.join(md, f"{view.image_name}_s{k}.png"))
             torchvision.utils.save_image((out["min_depth_diff"] < 0.999).float().view(1, H, W), os.path.join(md, f"{view.image_name}_validwarp.png"))
             np.save(os.path.join(md, f"{view.image_name}_depth.npy"), out[DEFAULT_DEPTH_TYPE].detach().float().cpu().numpy().reshape(H, W))
+            if name != 'test':   # train GT at eval resolution (test GT is saved by the normal path)
+                torchvision.utils.save_image(gt, os.path.join(gts_path, view.image_name + ".png"))
         if name == 'test':
             torchvision.utils.save_image(gt, os.path.join(gts_path, view.image_name + ".png"))
             torchvision.utils.save_image(rendering, os.path.join(render_path, view.image_name + ".png"))
