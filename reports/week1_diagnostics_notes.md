@@ -67,3 +67,14 @@ Mọi phân tích dùng render Protocol R (test view, không train thêm, không
 | flowers | 22.41 | 20.92 (−1.49) | 22.39 (−0.02) | — | 1.04 |
 Reading: shared-field application at test is required whenever the common component is non-trivial (kitchen/flowers lose >1 dB without it). m1w ≥ m1sh on all 4 scenes. Kitchen still −0.18 (mis-posed view DSCF0931; cap run pending). Bicycle m1w [sh] +0.20 vs best previous single-view variant +0.17; run-to-run noise ≈ 0.035.
 Next: exact camera-side application of the shared affine part (`src/phase/render_shared_exact.py`) — flowers aligned +0.42 says the model is better than resampled [sh] shows.
+
+### G3D — is the learned field a 3D gauge or a per-view pose? (`scripts/analysis/gauge3d_fit.py`, no GT used) — 2026-09-29
+Fit, from the learned train fields + trained Gaussians + train cameras only: (a) ONE global sim3 of the scene, (b) one 6-DoF pose correction per view.
+| model | field rms px | explained by one sim3 | explained by per-view 6-DoF pose | anchors displaced by the sim3 |
+|---|---|---|---|---|
+| bicycle m1w | 0.29 | 4.5% | **76.5%** | 0.09 px |
+| flowers m1w | 1.14 | 35.8% | **96.9%** | 0.80 px |
+| kitchen m1w | 0.36 | 61.6% | **87.6%** | 0.19 px |
+| playroom m1w | 0.22 | 12.0% | **72.1%** | 0.13 px |
+| kitchen m1n (no shared) | 0.09 | 0.3% | **94.7%** | 0.01 px |
+Reading: the learnable image-space phase field is, to 72–97%, a **per-view camera pose correction** (the training views are sub-pixel mis-posed; the field learns to re-pose them without pose gradients). Only kitchen/flowers have a sizeable *common* 3D component (a real scene drift, 62%/36%), and in flowers the anchors did not hold (the fitted drift displaces anchor views by 0.8 px although their field is pinned to 0 — the anchor loss is too weak on this low-PSNR scene). Consequences: (1) the exact camera-side application of the 2D shared field cannot recover flowers (o_ex 22.29 / o_exr 22.39 = same as resampled [sh]); (2) the correct "exact" correction is the 3D sim3 applied to the Gaussians (run_g3d.sh, pending); (3) positioning: this is joint pose refinement (BARF/SCNeRF/CamP/Robust-GS lineage) — CamP shows the same mechanism for NeRF on Mip-360; our differences are the image-space parameterisation (no pose gradients, any rasterizer), the diagnosis that the blur is phase inconsistency, and gauge fixing without test GT.
