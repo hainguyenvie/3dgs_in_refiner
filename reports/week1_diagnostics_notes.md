@@ -147,3 +147,11 @@ MCMC 32.21 | m1n −0.28 | m1sh [sh] −0.30 | m1w [sh] −0.18 | **m1n_cap 32.1
 |---|---|---|---|---|---|
 | treehill | 23.33 | +0.02 | −0.54 | **+0.12** | shared field needed (as flowers) |
 | kitchen (m1wc = m1w + cap 0.5) | 32.21 | −0.28 | −1.15 | −0.24 | cap does not rescue the m1w recipe (reg 1e-4 + shared); m1n_cap (reg 1e-3) −0.03 |
+
+### P9 — m1w [sh] on all 13 scenes (1 seed) — complete 2026-09-29 01:00 UTC (`reports/p6_m1w_sh.md`)
+| | MCMC | **m1w [sh]** | Δ | IBGS final | GADA final | Δ vs GADA |
+|---|---|---|---|---|---|---|
+| Mip-360 (9) | 28.30 / 0.846 / 0.175 | **28.33 / 0.849 / 0.170** | +0.03 | 28.53 / 0.841 / 0.181 | 28.63 | −0.30 |
+| T&T (2) | 24.46 / 0.871 / 0.143 | **24.53 / 0.871 / 0.137** | +0.07 | 24.89 / 0.872 / 0.144 | 24.93 | −0.40 |
+| DB (2) | 29.77 / 0.906 / 0.232 | **29.97 / 0.908 / 0.228** | +0.20 | 29.92 / 0.911 / 0.237 | — | — |
+Per scene Δ vs MCMC: bicycle +0.20, flowers −0.02, garden +0.10, stump **+0.27**, treehill +0.12, bonsai −0.07, counter −0.05, kitchen −0.18, room −0.06, train +0.08, truck +0.07, drjohnson −0.08, playroom **+0.49**. Outdoor 5/5 up; indoor 4/4 slightly down (−0.05…−0.18; kitchen fixed to −0.03 by the per-view cap in m1n_cap, not yet combined with shared successfully). vs GADA: **wins all 5 Mip-360 outdoor scenes (+0.10…+0.63) and truck (+0.19)**; loses indoor (bonsai −2.65, counter −1.45 — IBR colour aggregation indoors) and train (−0.98). On Mip-360 average our one-stage method beats IBGS final on SSIM (0.849 vs 0.841) and LPIPS (0.170 vs 0.181), PSNR −0.20. Without the shared field at test (m1w std): Mip-360 −0.6, so the intrinsics correction is essential to the recipe.
