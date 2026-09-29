@@ -125,26 +125,6 @@ và ở phía toán tử (resample). Hướng đúng là sửa dữ liệu lúc 
 aggregation nhiều nguồn — thứ one-stage không có (và cũng không nhắm tới). Nhiễu run-to-run ≈ 0.035 dB (MCMC bicycle
 r1/r2) ở Mip-360; **playroom là ngoại lệ (4.4)**: +0.49 thực chất là +0.20. +0.07…+0.12 cần seed 2 để khẳng định.
 
-### 4.4 Playroom: MCMC không ổn định — view test hỏng làm số dao động ±0.5 dB
-
-Mọi run MCMC trên playroom (baseline lẫn method) thỉnh thoảng có 1–2 view test bị **một Gaussian mờ màu vàng che kín**
-(PSNR 9–19 dB): MCMC r1 view 25 = 9.6 dB, baseline dùng trong bảng (oreg001) view 22 = 23.4, m1n view 14 = 19.3,
-m1s/m1sh view 25 = 9.4/15.8, m1w seed 1 sạch, m1w seed 2 view 18/22 = 15.8/15.3. Trên 25 view sạch (loại 4 view từng
-hỏng ở bất kỳ run nào):
-
-| run | PSNR tất cả view | PSNR 25 view sạch |
-|---|---|---|
-| MCMC oreg001 (baseline bảng) | 30.03 | 30.43 |
-| MCMC r1 | 29.23 | 30.03 |
-| MCMC r2 | 29.96 | 30.36 |
-| m1n | 30.17 | 30.57 |
-| m1w seed 1 | 30.52 | **30.63** |
-| m1w seed 2 | 29.56 | **30.62** |
-
-⇒ gain thật của m1w trên playroom là **+0.20** (hai seed trùng nhau tới 0.01), không phải +0.49; và số "all views" của
-scene này không dùng được để so sánh nếu không kiểm tra view hỏng. Lỗi haze là của MCMC (relocation/noise trên scene
-này), không phải của field pha; cần ghi chú trong paper hoặc bỏ playroom khỏi claim.
-
 ### 4.2 Ablation các biến thể (Δ PSNR trung bình so với MCMC; chi tiết `ablation_variants.md`)
 
 | biến thể | cấu hình | Mip-360 | T&T | DB | ghi chú |
@@ -170,6 +150,26 @@ này), không phải của field pha; cần ghi chú trong paper hoặc bỏ pla
 - N2b: **view test nào lệch, lệch bao nhiêu là thuộc tính dữ liệu** (corr 0.8–0.95 giữa MCMC và các model pha; median
   0.1–0.5 px). Model pha sắc hơn 3–4% (HF rms) và **trả giá nhiều hơn cho cùng sai số pose test**: flowers penalty
   +0.38 (MCMC) → +0.82 dB (m1w). PSNR chuẩn với camera test cố định đang "đánh thuế" độ sắc nét.
+
+### 4.4 Playroom: MCMC không ổn định — view test hỏng làm số dao động ±0.5 dB
+
+Mọi run MCMC trên playroom (baseline lẫn method) thỉnh thoảng có 1–2 view test bị **một Gaussian mờ màu vàng che kín**
+(PSNR 9–19 dB): MCMC r1 view 25 = 9.6 dB, baseline dùng trong bảng (oreg001) view 22 = 23.4, m1n view 14 = 19.3,
+m1s/m1sh view 25 = 9.4/15.8, m1w seed 1 sạch, m1w seed 2 view 18/22 = 15.8/15.3. Trên 25 view sạch (loại 4 view từng
+hỏng ở bất kỳ run nào):
+
+| run | PSNR tất cả view | PSNR 25 view sạch |
+|---|---|---|
+| MCMC oreg001 (baseline bảng) | 30.03 | 30.43 |
+| MCMC r1 | 29.23 | 30.03 |
+| MCMC r2 | 29.96 | 30.36 |
+| m1n | 30.17 | 30.57 |
+| m1w seed 1 | 30.52 | **30.63** |
+| m1w seed 2 | 29.56 | **30.62** |
+
+⇒ gain thật của m1w trên playroom là **+0.20** (hai seed trùng nhau tới 0.01), không phải +0.49; và số "all views" của
+scene này không dùng được để so sánh nếu không kiểm tra view hỏng. Lỗi haze là của MCMC (relocation/noise trên scene
+này), không phải của field pha; cần ghi chú trong paper hoặc bỏ playroom khỏi claim.
 
 ---
 
@@ -200,19 +200,24 @@ này), không phải của field pha; cần ghi chú trong paper hoặc bỏ pla
   renderer, tự phân rã thành intrinsics (shared) + extrinsics (per-view) + phần dư bậc cao; (ii) chuỗi chẩn đoán:
   blur = pha camera (E7), IBR không chuyển được HF vì resample (E8/E10) — giải thích vì sao IBGS/GADA chỉ mạnh indoor;
   (iii) gauge fixing bằng anchor thay cho test-time optimisation; (iv) one-stage inference vượt GADA ở outdoor.
-- **Hạn chế thẳng thắn**: gain metric chuẩn nhỏ (+0.0…+0.5/scene); indoor thua IBR xa; 1 seed; ngân sách còn lại nằm
+- **Hạn chế thẳng thắn**: gain metric chuẩn nhỏ (+0.0…+0.3/scene, tái lập ở seed 2 cho stump/bicycle/playroom, các scene khác 1 seed); indoor thua IBR xa; playroom cần loại view hỏng (4.4); ngân sách còn lại nằm
   ở pose camera test — không hợp lệ chạm tới trong protocol chuẩn.
 
 ---
 
-## 7. Đang chạy / việc tiếp theo
+## 7. Trạng thái và việc tiếp theo
 
-- **Đang chạy** (card 2,3,4,7, ~1h): m1w seed 2 cho stump/playroom/bicycle; MCMC r2 cho stump/playroom → cột "±" cho
-  các gain đầu bảng.
-- Kết hợp cap với recipe m1w cho indoor (kitchen: m1n_cap −0.03 vs m1w −0.18) — một lần, không tune thêm.
-- Đo chi phí: thời gian train (m1w vs MCMC), khẳng định inference không đổi.
-- Viết: bảng 4.1 + 4.3 song song, hình σ_eff(σ_pose) (E7), phân rã field → pose/intrinsics (§3), so sánh CamP.
+- **Trạng thái (29/09, 01:55 UTC): thí nghiệm GPU tạm dừng theo yêu cầu; không job nào chạy; cả 8 card trống.**
+  Chờ quyết định hướng đi mới trước khi chạy thêm.
+- Việc còn dở nếu tiếp tục hướng này (không cần GPU nhiều): đo thời gian train m1w vs MCMC; viết bảng 4.1 + 4.3 song
+  song, hình σ_eff(σ_pose) (E7), phân rã field → pose/intrinsics (§3), so sánh CamP. Một lần duy nhất: ghép cap vào
+  recipe m1w cho indoor (kitchen m1n_cap −0.03 vs m1w −0.18).
 - Không làm nữa: mọi thứ trong §5.
+- Ba điều rút ra cho việc chọn hướng: (1) trần của "sửa camera train" ≈ +0.3 dB/scene trên protocol chuẩn vì camera test
+  cũng sai pose và không được chạm — đẩy thêm là tuning; (2) gap lớn thật (1.5–2.7 dB) ở indoor là colour aggregation
+  nhiều nguồn của IBR — one-stage muốn lấy phải học được appearance/LF theo view, không phải hình học; (3) E7 cho thấy
+  trần thật của Gaussian cao hơn hiện tại vài dB nếu dữ liệu nhất quán — hoặc làm dữ liệu nhất quán bằng cách khác
+  (render "mờ theo pha đúng" thay vì mờ trung bình), hoặc đề xuất protocol/benchmark với camera test được cân chỉnh.
 
 ### Vị trí code
 `src/phase/train_mcmc_phase.py` (trainer), `scripts/run_p4.sh` / `launch_p6.sh` / `collect_p6.py` (chạy & bảng),
