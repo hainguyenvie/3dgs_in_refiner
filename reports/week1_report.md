@@ -25,7 +25,7 @@ liệu thô do script sinh ra; mọi thứ cần đọc nằm ở đây.
   dữ liệu), nên model càng sắc càng bị PSNR phạt. CamP (Zip-NeRF) được +0.2…+0.6 dB cùng cơ chế nhưng phải tối ưu lại
   camera test bằng ảnh test (protocol BARF) — protocol 3DGS chuẩn không cho phép. Đo theo protocol đó (phase-aligned),
   mình +0.27 dB trung bình (12/13 scene).
-- **Seed 2** (stump/playroom/bicycle + MCMC r2): playroom xong — gain thật +0.20 (hai seed trùng nhau trên view sạch); stump/bicycle đang chạy. Sau lượt này **dừng, nhả card** theo yêu cầu.
+- **Seed 2** (stump/playroom/bicycle + MCMC r2): stump **27.97 vs 27.95** (seed 1) và MCMC r2 27.65 vs r1 27.69 → +0.27…+0.32 chắc chắn; playroom gain thật +0.20 (hai seed trùng nhau trên view sạch); bicycle s2 và MCMC playroom r2 đang chạy. Sau lượt này **dừng, nhả card** theo yêu cầu.
 
 ---
 
