@@ -1,4 +1,4 @@
-# Week 1 — Báo cáo tổng hợp (cập nhật 29/09/2026, 01:30 UTC)
+# Week 1 — Báo cáo tổng hợp (cập nhật 29/09/2026, 01:55 UTC — thí nghiệm GPU tạm dừng, card đã nhả)
 
 Một file duy nhất cho toàn bộ tuần 1: mục tiêu, baseline, chuỗi chẩn đoán, method, kết quả 13 scene, các thí nghiệm
 đã đóng (kể cả null), định vị so với prior art, và việc đang chạy. Các file `reports/*.md/json` khác chỉ là log số
@@ -25,7 +25,7 @@ liệu thô do script sinh ra; mọi thứ cần đọc nằm ở đây.
   dữ liệu), nên model càng sắc càng bị PSNR phạt. CamP (Zip-NeRF) được +0.2…+0.6 dB cùng cơ chế nhưng phải tối ưu lại
   camera test bằng ảnh test (protocol BARF) — protocol 3DGS chuẩn không cho phép. Đo theo protocol đó (phase-aligned),
   mình +0.27 dB trung bình (12/13 scene).
-- **Seed 2** (stump/playroom/bicycle + MCMC r2): stump **27.97 vs 27.95** (seed 1) và MCMC r2 27.65 vs r1 27.69 → +0.27…+0.32 chắc chắn; playroom gain thật +0.20 (hai seed trùng nhau trên view sạch); bicycle s2 và MCMC playroom r2 đang chạy. Sau lượt này **dừng, nhả card** theo yêu cầu.
+- **Seed 2 — xong (01:50 UTC), tất cả card đã nhả, không có job nào chạy.** stump 27.97 vs 27.95 (MCMC r1/r2 27.69/27.65) → **+0.27…+0.32**; bicycle 26.31 vs 26.33 (MCMC 26.13/26.165) → **+0.15…+0.20**; playroom trên 25 view sạch 30.62/30.63 vs MCMC 30.43/30.36 → **+0.20…+0.26** (số all-view vô nghĩa vì view hỏng, 4.4). Ba gain đầu bảng đều tái lập ở seed 2 trong ±0.02 dB.
 
 ---
 
@@ -136,6 +136,7 @@ hỏng ở bất kỳ run nào):
 |---|---|---|
 | MCMC oreg001 (baseline bảng) | 30.03 | 30.43 |
 | MCMC r1 | 29.23 | 30.03 |
+| MCMC r2 | 29.96 | 30.36 |
 | m1n | 30.17 | 30.57 |
 | m1w seed 1 | 30.52 | **30.63** |
 | m1w seed 2 | 29.56 | **30.62** |
