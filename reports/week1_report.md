@@ -20,12 +20,12 @@ liệu thô do script sinh ra; mọi thứ cần đọc nằm ở đây.
 - **Kết quả (1 seed, 13 scene)** — `m1w [sh]` so với MCMC: Mip-360 **+0.03** (outdoor 5/5 lên, indoor 4/4 xuống nhẹ),
   T&T **+0.07**, DB **+0.20**. So với GADA final: **thắng cả 5 scene outdoor Mip-360 (+0.10…+0.63) và truck (+0.19)**,
   thua indoor rất xa (bonsai −2.65, counter −1.45) và train (−0.98). Trên Mip-360 trung bình: SSIM/LPIPS hơn IBGS final
-  (0.849/0.170 vs 0.841/0.181), PSNR kém −0.20. Scene tốt nhất: playroom **+0.49**, stump **+0.27**, bicycle **+0.20**.
+  (0.849/0.170 vs 0.841/0.181), PSNR kém −0.20. Scene tốt nhất: stump **+0.27**, bicycle **+0.20**, playroom **+0.20** (số +0.49 trong bảng là do baseline dính một view hỏng — xem 4.4).
 - **Vì sao gain metric chuẩn bị chặn**: camera *test* cũng lệch pose sub-pixel như camera train (đo được, là thuộc tính
   dữ liệu), nên model càng sắc càng bị PSNR phạt. CamP (Zip-NeRF) được +0.2…+0.6 dB cùng cơ chế nhưng phải tối ưu lại
   camera test bằng ảnh test (protocol BARF) — protocol 3DGS chuẩn không cho phép. Đo theo protocol đó (phase-aligned),
   mình +0.27 dB trung bình (12/13 scene).
-- **Đang chạy**: seed 2 cho stump/playroom/bicycle + MCMC r2 để khẳng định gain ngoài nhiễu (≈0.035 dB).
+- **Seed 2** (stump/playroom/bicycle + MCMC r2): playroom xong — gain thật +0.20 (hai seed trùng nhau trên view sạch); stump/bicycle đang chạy. Sau lượt này **dừng, nhả card** theo yêu cầu.
 
 ---
 
@@ -123,7 +123,26 @@ và ở phía toán tử (resample). Hướng đúng là sửa dữ liệu lúc 
 
 Đọc: outdoor 5/5 lên, thắng GADA 6 scene; indoor xuống nhẹ và thua GADA xa vì gain indoor của IBR là colour
 aggregation nhiều nguồn — thứ one-stage không có (và cũng không nhắm tới). Nhiễu run-to-run ≈ 0.035 dB (MCMC bicycle
-r1/r2), nên +0.07…+0.12 cần seed 2 để khẳng định; +0.20/+0.27/+0.49 rõ ràng.
+r1/r2) ở Mip-360; **playroom là ngoại lệ (4.4)**: +0.49 thực chất là +0.20. +0.07…+0.12 cần seed 2 để khẳng định.
+
+### 4.4 Playroom: MCMC không ổn định — view test hỏng làm số dao động ±0.5 dB
+
+Mọi run MCMC trên playroom (baseline lẫn method) thỉnh thoảng có 1–2 view test bị **một Gaussian mờ màu vàng che kín**
+(PSNR 9–19 dB): MCMC r1 view 25 = 9.6 dB, baseline dùng trong bảng (oreg001) view 22 = 23.4, m1n view 14 = 19.3,
+m1s/m1sh view 25 = 9.4/15.8, m1w seed 1 sạch, m1w seed 2 view 18/22 = 15.8/15.3. Trên 25 view sạch (loại 4 view từng
+hỏng ở bất kỳ run nào):
+
+| run | PSNR tất cả view | PSNR 25 view sạch |
+|---|---|---|
+| MCMC oreg001 (baseline bảng) | 30.03 | 30.43 |
+| MCMC r1 | 29.23 | 30.03 |
+| m1n | 30.17 | 30.57 |
+| m1w seed 1 | 30.52 | **30.63** |
+| m1w seed 2 | 29.56 | **30.62** |
+
+⇒ gain thật của m1w trên playroom là **+0.20** (hai seed trùng nhau tới 0.01), không phải +0.49; và số "all views" của
+scene này không dùng được để so sánh nếu không kiểm tra view hỏng. Lỗi haze là của MCMC (relocation/noise trên scene
+này), không phải của field pha; cần ghi chú trong paper hoặc bỏ playroom khỏi claim.
 
 ### 4.2 Ablation các biến thể (Δ PSNR trung bình so với MCMC; chi tiết `ablation_variants.md`)
 

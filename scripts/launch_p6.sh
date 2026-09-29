@@ -24,6 +24,6 @@ declare -A LIST_Q; i=0
 while read -r sc; do [ -z "$sc" ] && continue; q=$(( i % ${#Q[@]} )); LIST_Q[$q]+="$sc "; i=$((i+1)); done < "$LIST"
 for q in "${!LIST_Q[@]}"; do
   card=${Q[$q]}
-  (setsid nohup bash -c 'ROOT=$1; card=$2; EX=$3; V=$4; for sc in $5; do echo "[$(date -u +%FT%TZ)] card=$card start $sc"; G=$card NO_FIELDS=1 EXTRA="$EX" OMP_NUM_THREADS=3 bash $ROOT/scripts/run_p4.sh $sc 1.0 ${sc}_p6_$V > $ROOT/logs/p6/${sc}_p6_$V.log 2>&1; echo "[$(date -u +%FT%TZ)] card=$card end $sc rc=$?"; done; echo QUEUE_DONE' _ "$ROOT" "$card" "$EX" "$VARIANT" "${LIST_Q[$q]}" > logs/p6/queue_${VARIANT}_${q}_card${card}.log 2>&1 < /dev/null &)
+  (setsid nohup env TAGSUF="${TAGSUF:-}" bash -c 'ROOT=$1; card=$2; EX=$3; V=$4; for sc in $5; do echo "[$(date -u +%FT%TZ)] card=$card start $sc"; G=$card NO_FIELDS=1 EXTRA="$EX" OMP_NUM_THREADS=3 bash $ROOT/scripts/run_p4.sh $sc 1.0 ${sc}_p6_$V$TAGSUF > $ROOT/logs/p6/${sc}_p6_$V$TAGSUF.log 2>&1; echo "[$(date -u +%FT%TZ)] card=$card end $sc rc=$?"; done; echo QUEUE_DONE' _ "$ROOT" "$card" "$EX" "$VARIANT" "${LIST_Q[$q]}" > logs/p6/queue_${VARIANT}_${q}_card${card}.log 2>&1 < /dev/null &)
   echo "queue $q -> card $card: ${LIST_Q[$q]}"
 done
