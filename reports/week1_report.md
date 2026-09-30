@@ -370,3 +370,8 @@ MCMC thuần qua `run_p4.sh` với `--pp_from_colmap` + `render_pp.py` (patch đ
 **32/32 view test tốt lên** (median +1.02, thấp nhất +0.24). Adam SLAM chỉ tinh chỉnh pose + FoV (truck +0.34), nên
 principal point trôi theo từng frame là phần họ không có. Nghi nguyên nhân: T&T là frame cắt từ video — chống rung điện
 tử (EIS) dời khung crop theo từng frame, tương đương dời principal point. Đang kiểm holdout pfpp trên các scene khác.
+
+Holdout thêm principal point riêng (so với chỉ focal riêng): **train −19%, truck −18%** (hai scene video T&T); các
+scene ảnh tĩnh chỉ 0…−4% (garden −3.5, drjohnson −3.7, bonsai −3.2, còn lại ≤ −2.5; kitchen/counter/room ≈ 0). ⇒
+principal point trôi theo frame là đặc trưng của video (khớp giả thuyết EIS). Dự đoán kiểm chứng: train pfpp phải lên
+như truck (≈ +0.8…+1.2 thay vì +0.35). treehill seed 2 trên calib focal-riêng: 24.64 (seed 1: 24.60) → +1.27…+1.31.
