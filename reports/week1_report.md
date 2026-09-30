@@ -224,3 +224,31 @@ này), không phải của field pha; cần ghi chú trong paper hoặc bỏ pla
 `scripts/analysis/` (E-chain, `phase_aligned_psnr.py`, `gauge3d_*.py`, `shared_field_decompose.py`,
 `n2b_test_misalignment.py`), `configs/mcmc/`, `protocol/protocol_R.md`. Log số liệu thô theo thứ tự thời gian:
 `reports/week1_diagnostics_notes.md`.
+
+---
+
+## 8. Câu hỏi 30/09: dùng matching kiểu Tensara (SuperPoint + LightGlue) để ràng buộc depth/warp — có khả thi?
+
+**Tensara thực ra dùng matching để làm gì**: match dày ảnh train (SuperPoint 8192 kp + LightGlue + MAGSAC++) → phát
+hiện camera model sai (Sampson error tăng từ tâm ra góc, 13–40 px giữa các dải bay) → **chạy lại SfM có tự hiệu chỉnh
+distortion**, chuyển pose test sang hệ mới bằng PnP. Matching là công cụ *chẩn đoán + dựng lại SfM*, không phải loss
+trong training. Sàn nhiễu của matcher trong report là **2.5 px**; nó dùng được vì lỗi của họ lớn gấp 5–15 lần sàn đó.
+
+**Trên benchmark của mình, dùng làm ràng buộc warp/depth: không khả thi.**
+- Lỗi cần sửa: 0.05–0.35 px (sai số tái chiếu COLMAP trung vị 0.23–0.35 px, E6; pose correction học được 0.05–0.2 px).
+  Nhiễu của SuperPoint/LightGlue: median epipolar 1.0–1.7 px trên MegaDepth, chỉ 27–33% match đúng trong 1 px
+  (HPatches) — **lớn hơn lỗi cần sửa 5–30 lần**. SIFT (thứ COLMAP đang dùng) còn chính xác sub-pixel hơn SuperPoint.
+- Warp bị chặn bởi resample chứ không bởi depth: E8 với depth hoàn hảo vẫn chỉ 27.5 dB outdoor. Depth tốt hơn từ
+  matching không nâng được phần HF.
+- Các paper dùng matching prior cho 3DGS (SCGaussian, MCGS, GeoTrack-GS, TWINGS…) đều ở **sparse-view**, nơi hình
+  học thiếu ràng buộc. Dense-view (Mip-360 đủ ảnh) thì loss photometric đã ràng buộc depth rồi.
+
+**Phần có thể chuyển giao là cách chẩn đoán + dựng lại SfM của Tensara**, không phải matcher. Dấu hiệu ở dữ liệu của
+mình: mọi scene dùng **một camera PINHOLE, principal point đặt đúng tâm ảnh** (bicycle 2473.0 = 4946/2; COLMAP mặc
+định không tinh chỉnh principal point), trong khi field chung học được nói flowers lệch principal point ≈1 px @1/4 res
+(≈4 px full res). Đây là "lỗi calibration bị BA hấp thụ", giống Tensara nhưng nhỏ hơn nhiều. Ảnh test nằm chung trong
+SfM gốc, nên dựng lại SfM tốt hơn sẽ sửa luôn pose test mà không dùng pixel test để fit model.
+- Probe rẻ, chỉ CPU: chẩn đoán Sampson theo bán kính và theo số điểm chung trên COLMAP gốc của Mip-360/T&T/DB. Matcher
+  cần sub-pixel: SIFT + featuremetric refinement (Pixel-Perfect SfM), hoặc so pose với field pha học được.
+- Rủi ro: đổi pose là đổi benchmark, phải chạy lại mọi baseline trên pose mới và viết rõ trong protocol; lợi ích có thể
+  nhỏ nếu Sampson không có profile theo bán kính.
