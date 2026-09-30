@@ -61,7 +61,7 @@ MCMC thuần **thắng GADA final ở cả 5 scene outdoor** ngay từ đầu �
 | **E7** | Mờ do năng lực hay do dữ liệu? (train lại trên GT nhân tạo nhất quán, tiêm nhiễu pose) | σ_eff **0.15 px** khi nhất quán → 0.39 ở σ_pose=0.6 px; thật 0.44. **−0.7 dB mỗi 0.1 px lệch** | **Do dữ liệu không nhất quán dưới pixel**, không do năng lực |
 | E1b/E1c | Warp nguồn tại test có tốt không? | Outdoor: warp kém raw 2–2.6 dB dù lệch chỉ 0.22 px; căn flow/sửa màu không cứu | Warp outdoor **tệ hơn ảnh mờ** |
 | **E8** | Warp trong thế giới nhân tạo tĩnh, depth đúng | Vẫn chỉ 27.5 / 29.6 dB (raw 39 / 44) | Sàn lỗi **nội tại** của warp |
-| **E10** | Chỉ resample nửa pixel tốn bao nhiêu? | bilinear 28.65 / 28.48 / 36.0 dB (bicycle/garden/bonsai); bicubic không hơn | **Sàn warp = sàn lấy mẫu** ở cả 3 scene |
+| **E10** | Chỉ resample nửa pixel tốn bao nhiêu? | trên render tổng hợp: bilinear 28.65 / 28.48 / 36.0 dB; **trên ảnh thật (B1, §8.1): 37 / 39.7 / 45 dB** | Sàn warp = sàn lấy mẫu **chỉ đúng với render alias**; với ảnh thật nút thắt là lệch hình học |
 | D1 | Nhánh residual làm base "lười"? MCMC densify cứu IBGS? | noagg ≈ raw (H2 bác bỏ); MCMC densify trong IBGS +0.23 final (garden/train vượt GADA) | densify giúp; loss hình học IBGS hại |
 | N1/N3 | Sàn nhiễu ảnh & ngân sách photometric/view | nhiễu ảnh không giải thích được gap | Vấn đề là pha, không phải nhiễu |
 | Tensara post-hoc | Chạy thử refiner của report | bicycle −0.65, garden −0.90 | Không dùng |
@@ -252,3 +252,39 @@ SfM gốc, nên dựng lại SfM tốt hơn sẽ sửa luôn pose test mà khôn
   cần sub-pixel: SIFT + featuremetric refinement (Pixel-Perfect SfM), hoặc so pose với field pha học được.
 - Rủi ro: đổi pose là đổi benchmark, phải chạy lại mọi baseline trên pose mới và viết rõ trong protocol; lợi ích có thể
   nhỏ nếu Sampson không có profile theo bán kính.
+
+### 8.1 Làm theo tư duy Tensara trên dữ liệu của mình — kết quả (30/09, chỉ CPU)
+
+**C1 — audit COLMAP gốc từ chính track của nó** (`scripts/analysis/c1_calib_audit.py`, 13 scene): mọi scene một camera
+PINHOLE, principal point đúng tâm. Sai số tái chiếu trung vị 0.5–1.2 px ở full res (0.23–0.35 px ở độ phân giải đánh
+giá, khớp E6). Residual **tăng từ tâm ra góc** ở các scene outdoor/T&T (flowers 1.07 → 1.42, garden 1.06 → 1.60,
+truck 0.56 → 0.90, bonsai 0.64 → 1.12). Trên chính track của nó thì field hệ thống ≈ 0, vì BA đã hấp thụ hết, đúng như
+Tensara mô tả.
+
+**C2 — BA lại với camera model khác nhau** (cùng track, tất cả ảnh train+test như bản gốc):
+- Chỉ pose: không đổi gì. Model phát hành đã hội tụ.
+- Thêm principal point / distortion OPENCV: sai số giảm < 1–6%, principal point trượt 3–40 px dọc theo mode suy biến
+  với phép xoay camera. **Không phải lỗi distortion kiểu Tensara.**
+- **Focal riêng từng ảnh** (focus breathing): sai số giảm rõ và profile theo bán kính phẳng lại.
+
+**C4 — holdout (điểm 3D không tham gia BA, triangulate lại bằng camera mới)** (`c4_holdout_calib.py`):
+
+| scene | shared camera (bản phát hành) | **focal riêng từng ảnh** | + principal point |
+|---|---|---|---|
+| flowers | 1.159 px | **0.986 (−15%)** | 1.151 |
+| bicycle | 1.135 | **1.045 (−8%)** | 1.132 |
+| kitchen | 0.530 | **0.514 (−3%)** | 0.528 |
+| truck | 0.671 | **0.630 (−6%)** | 0.671 |
+
+Focal lệch giữa các ảnh std 0.13–0.22% (range 0.6–1.3%) ≈ 1.3–3.7 px ở mép ảnh full res ≈ **0.3–0.9 px ở độ phân giải
+train** — cùng bậc với ngân sách sub-pixel của cả dự án. Đây là một lỗi camera model thật (generalise trên điểm
+holdout), bị BA của bản phát hành hấp thụ vào pose, và nó ảnh hưởng cả camera **test** (test nằm trong SfM).
+Tương quan với field học được chỉ yếu (+0.1…+0.2 kitchen/truck, sau khi căn theo điểm 3D) — field học được nhỏ hơn
+(0.06–0.16 px) và phần lớn bù pose; phép thử quyết định là train lại trên calibration mới (cần GPU).
+
+**B1 — sửa một kết luận cũ về warp** (`b1_supersampled_resampling.py`, ảnh thật, không model): resample 0.5 px bằng
+bicubic trên **ảnh chụp thật** ở độ phân giải benchmark chỉ mất tới mức 37 dB (bicycle), 39.7 (garden), 45 (bonsai);
+sàn 28.5 dB của E10 là do render 3DGS lấy mẫu điểm bị alias, không đúng cho ảnh chụp. Lệch vị trí không bù mới tốn:
+0.25 px → 34–39 dB, 0.5 px → 28–33 dB. ⇒ Với ảnh thật, thứ giết warp là **lệch hình học/pose sub-pixel** và
+visibility/appearance, không phải resample. Nguồn oversampled (full-res, 4×) xoá hẳn phần resample (54–66 dB) nhưng
+phần đó vốn không phải nút thắt. Mọi thứ quy về cùng một biến: **độ chính xác hình học sub-pixel của camera**.
