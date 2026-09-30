@@ -322,3 +322,17 @@ hành; muốn claim phải chạy lại các baseline trên calib sửa (và ghi
 SfM gốc, không dùng render).
 
 Patch principal point riêng từng ảnh đã kiểm trên GPU: dịch cx +8 px @COLMAP → ảnh dịch 4.001 px (kỳ vọng 4.002).
+
+**Tách nguồn gốc gain (D2, `d2_refit_test_cams.py` + `src/phase/render_cams_json.py`)**: chỉ fit lại camera test từ
+keypoint của chúng, scene và camera train cố định. Đối chứng (fit lại với focal chung trên model cũ) giữ nguyên PSNR
+(22.41 / 26.131 / 29.506) → quy trình trung tính.
+
+| scene | model cũ | cũ + camera test focal riêng | mới + camera test focal chung | **mới (đầy đủ)** |
+|---|---|---|---|---|
+| flowers | 22.41 | 22.49 (+0.08) | 22.66 (+0.25) | **23.01 (+0.60)** |
+| bicycle | 26.13 | 26.21 (+0.08) | 26.30 (+0.17) | **26.57 (+0.44)** |
+| drjohnson | 29.50 | 29.64 (+0.14) | 29.81 (+0.30) | **30.22 (+0.71)** |
+
+Phía train (model sắc hơn): +0.17…+0.30; phía test trên model cũ: +0.08…+0.14; **cộng hưởng**: model sắc cần camera
+test đúng (mất 0.27–0.41 nếu test dùng focal chung) — đúng như N2b. (Đổi chéo nguyên bộ camera giữa hai calibration thì
+vô nghĩa: focal và pose bù trừ nhau, lệch > 0.5 px — 19.8 / 18.4 dB.)
