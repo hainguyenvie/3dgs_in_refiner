@@ -1,0 +1,6 @@
+# IBGS (authors' recipe) on the per-image-focal re-calibrated scenes: does the IBR advantage over MCMC shrink once the
+# calibration is fixed? Compare with outputs/protocolR/ibgs/<scene>_r1 (released calibration) and calib/runs/<scene>_mcmc_pf.
+ibgs_pf_flowers   | NO_VGATE=1 SRC_OVERRIDE=$PWD/data/calib/flowers_pf   OUT_OVERRIDE=$PWD/outputs/calib/runs/flowers_ibgs_pf   bash scripts/run_ibgs.sh flowers pf
+ibgs_pf_treehill  | NO_VGATE=1 SRC_OVERRIDE=$PWD/data/calib/treehill_pf  OUT_OVERRIDE=$PWD/outputs/calib/runs/treehill_ibgs_pf  bash scripts/run_ibgs.sh treehill pf
+ibgs_pf_drjohnson | NO_VGATE=1 SRC_OVERRIDE=$PWD/data/calib/drjohnson_pf OUT_OVERRIDE=$PWD/outputs/calib/runs/drjohnson_ibgs_pf bash scripts/run_ibgs.sh drjohnson pf
+ibgs_pf_bonsai    | NO_VGATE=1 SRC_OVERRIDE=$PWD/data/calib/bonsai_pf    OUT_OVERRIDE=$PWD/outputs/calib/runs/bonsai_ibgs_pf    bash scripts/run_ibgs.sh bonsai pf

@@ -1,0 +1,5 @@
+# batch 3 (2026-09-30): per-image focal+pp on truck; seed 2 of the largest gain; phase method on re-calibrated scenes
+truck_pfpp_mcmc      | NO_FIELDS=1 PP=1 SRC_OVERRIDE=$PWD/data/calib/truck_pfpp EXTRA="--pp_from_colmap" bash scripts/run_p4.sh truck 1.0 calib_truck_pfpp_mcmc
+treehill_pf_mcmc_s2  | NO_VGATE=1 SRC_OVERRIDE=$PWD/data/calib/treehill_pf OUT_OVERRIDE=$PWD/outputs/calib/runs/treehill_mcmc_pf_s2 bash scripts/run_gs_baseline.sh mcmc treehill pf_s2
+flowers_pf_m1n       | NO_FIELDS=1 SRC_OVERRIDE=$PWD/data/calib/flowers_pf EXTRA="--learn_phase --phase_lr 1e-3 --phase_reg 1e-3 --phase_start 1000 --phase_anchor_every 8" bash scripts/run_p4.sh flowers 1.0 calib_flowers_pf_m1n
+treehill_pf_m1n      | NO_FIELDS=1 SRC_OVERRIDE=$PWD/data/calib/treehill_pf EXTRA="--learn_phase --phase_lr 1e-3 --phase_reg 1e-3 --phase_start 1000 --phase_anchor_every 8" bash scripts/run_p4.sh treehill 1.0 calib_treehill_pf_m1n

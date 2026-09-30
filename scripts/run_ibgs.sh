@@ -20,13 +20,14 @@ case "$SCENE" in
   train|truck)                            SRC=$D/tandt_db/tandt/$SCENE; FLAGS="-r 2 --eval --exposure_compensation --enable_exposure_correction" ;;
   *) echo "unknown scene $SCENE"; exit 2 ;;
 esac
+[ -n "${SRC_OVERRIDE:-}" ] && SRC="$SRC_OVERRIDE"          # re-calibrated copy (data/calib/<scene>_pf)
 EXTRA=""; IT=30000
 if [ "${SMOKE:-0}" = 1 ]; then
   IT=800
   EXTRA="--iterations 800 --densify_until_iter 500 --start_color_aggregation_iter 300 --color_aggregate_burnin_steps 100
          --single_view_weight_from_iter 300 --multi_view_weight_from_iter 300 --test_iterations 800 --save_iterations 800"
 fi
-OUT="$ROOT/outputs/protocolR/ibgs/${SCENE}_${TAG}"
+OUT="${OUT_OVERRIDE:-$ROOT/outputs/protocolR/ibgs/${SCENE}_${TAG}}"
 mkdir -p "$OUT" "$ROOT/logs"
 if [ "${PRETRAINED:-0}" = 1 ]; then
   case "$SCENE" in
