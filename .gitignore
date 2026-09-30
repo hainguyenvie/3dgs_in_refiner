@@ -19,3 +19,8 @@ __pycache__/
 # reference papers (copyrighted PDFs) — local/server only
 papers/
 .venv_tools/
+
+# server archive (2026-09-30): small results are tracked; heavy artefacts live on Drive / local only
+archive/checkpoints/
+archive/calib_sparse/
+archive/staging/
