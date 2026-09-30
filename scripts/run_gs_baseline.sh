@@ -14,6 +14,7 @@ case "$SCENE" in
   drjohnson|playroom)                    SRC=$D/tandt_db/db/$SCENE;    GRP=db ;;
   *) echo "unknown scene $SCENE"; exit 2 ;;
 esac
+[ -n "${SRC_OVERRIDE:-}" ] && SRC="$SRC_OVERRIDE"          # e.g. a re-calibrated copy of the scene (data/calib/<scene>_pf)
 case "$METHOD" in
   3dgs)
     REPO=$ROOT/third_party/gaussian-splatting; PY=$ROOT/.venv_3dgs/bin/python
@@ -34,7 +35,7 @@ esac
 [ -n "${EXTRA_TRAIN:-}" ] && TRAIN_FLAGS="$TRAIN_FLAGS $EXTRA_TRAIN"
 IT=30000
 if [ "${SMOKE:-0}" = 1 ]; then IT=1000; TRAIN_FLAGS="$TRAIN_FLAGS --iterations 1000 --save_iterations 1000 --densify_until_iter 800"; fi
-OUT="$ROOT/outputs/protocolR/$METHOD/${SCENE}_${TAG}"
+OUT="${OUT_OVERRIDE:-$ROOT/outputs/protocolR/$METHOD/${SCENE}_${TAG}}"
 mkdir -p "$OUT" "$ROOT/logs"
 
 export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES="${G:?set G=<card>}"

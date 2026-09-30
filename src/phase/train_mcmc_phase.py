@@ -131,6 +131,7 @@ PHASE_ZERO_MEAN = False
 PHASE_ANCHOR = []
 PHASE_SHARED = False
 PHASE_CAP = 0.0
+PP_FROM_COLMAP = False   # per-image principal point from COLMAP (off-centre projection); default 3DGS assumes the centre
 SHIFT_TOL = None   # [phase-M2] (tol_px, grid_n, patch): per-patch min over sub-pixel shifts of the render
 
 def shift_tolerant_l1(image, gt, tol, n, patch):
@@ -157,6 +158,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
     scene = Scene(dataset, gaussians)
+    if PP_FROM_COLMAP:
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); from pp_patch import patch_principal_points
+        patch_principal_points(scene, dataset.source_path)
     gaussians.training_setup(opt)
     global PHASE, COLOR
     if COLOR_ARGS is not None:
@@ -397,6 +401,7 @@ if __name__ == "__main__":
     parser.add_argument("--phase_zero_mean", action="store_true")   # gauge fixing: subtract the across-view mean field each step
     parser.add_argument("--phase_anchor_every", type=int, default=0)  # gauge fixing: every N-th train view (sorted) keeps a zero field
     parser.add_argument("--phase_shared", action="store_true")      # learn a camera-common field (added to every view; applied to test renders too)
+    parser.add_argument("--pp_from_colmap", action="store_true")    # per-image principal point (re-calibrated scenes)
     parser.add_argument("--phase_cap", type=float, default=0.0)     # cap per-view mean field magnitude (px); 0 = off
     parser.add_argument("--color_affine", action="store_true")      # [M3] per-view learnable 3x4 colour affine on the render
     parser.add_argument("--color_lr", type=float, default=1e-3)
@@ -419,7 +424,7 @@ if __name__ == "__main__":
     elif args.learn_phase:   # no fields file: build learnable fields once the scene (train view names) is known
         PHASE_ARGS = {"path": None, "scale": args.flow_scale, "lr": args.phase_lr, "deg": args.phase_deg, "anchor_every": args.phase_anchor_every}
         print(f"[phase] learnable fields from zero for all train views (no measured fields), lr={args.phase_lr}")
-    PHASE_REG = args.phase_reg; PHASE_START = args.phase_start; PHASE_ZERO_MEAN = args.phase_zero_mean; PHASE_SHARED = args.phase_shared; PHASE_CAP = args.phase_cap
+    PHASE_REG = args.phase_reg; PHASE_START = args.phase_start; PHASE_ZERO_MEAN = args.phase_zero_mean; PHASE_SHARED = args.phase_shared; PHASE_CAP = args.phase_cap; PP_FROM_COLMAP = args.pp_from_colmap
     
     if args.config is not None:
         # Load the configuration file
