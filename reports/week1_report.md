@@ -337,13 +337,14 @@ Phía train (model sắc hơn): +0.17…+0.30; phía test trên model cũ: +0.08
 test đúng (mất 0.27–0.41 nếu test dùng focal chung) — đúng như N2b. (Đổi chéo nguyên bộ camera giữa hai calibration thì
 vô nghĩa: focal và pose bù trừ nhau, lệch > 0.5 px — 19.8 / 18.4 dB.)
 
-### 8.3 Bảng 13 scene (12/13 xong) và prior art trùng — đọc kỹ
+### 8.3 Bảng 13 scene và prior art trùng — đọc kỹ
 
 MCMC thuần trên calib sửa, so với MCMC trên calib phát hành: bicycle +0.44, flowers +0.60, garden +0.38, stump +0.32,
-**treehill +1.27** (17/18 view tốt lên), bonsai +0.24, kitchen +0.15, room +0.08, counter (đang chạy), train +0.35,
-truck +0.27, drjohnson +0.71, playroom +0.18 (25 view sạch: +0.2…+0.6). Trung bình: **Mip-360 (8/9) 28.15 → 28.59
-(+0.43)**, T&T 24.46 → 24.77 (+0.31), DB 29.77 → 30.21 (+0.44); SSIM/LPIPS tốt lên đều. Liều–đáp ứng: gain xếp gần
-đơn điệu theo mức cải thiện holdout của từng scene (treehill/drjohnson/flowers cao nhất; kitchen/room thấp nhất).
+**treehill +1.27** (17/18 view tốt lên), bonsai +0.24, kitchen +0.15, room +0.08, counter +0.04, train +0.35,
+truck +0.27, drjohnson +0.71, playroom +0.18 (25 view sạch: +0.2…+0.6). Trung bình: **Mip-360 (9/9) 28.30 → 28.69
+(+0.39)** (> IBGS final 28.53, GADA 28.63), T&T 24.46 → 24.77 (+0.31), DB 29.77 → 30.21 (+0.44); SSIM/LPIPS tốt lên đều. Liều–đáp ứng: gain theo mức cải thiện holdout
+của từng scene có **Spearman ρ = 0.95** (Pearson r = 0.77, n = 13); hai scene đối chứng (holdout ≈ 0%) counter +0.04,
+room +0.08.
 
 **Prior art trùng hiệu ứng: Adam SLAM — "the last mile of camera calibration with 3DGS" (Gendrin et al., arXiv
 2508.20526, 08/2025).** Tinh chỉnh pose + FoV từng ảnh bằng backprop qua 3DGS trên Mip-360/T&T/DB: +0.43 dB trung
