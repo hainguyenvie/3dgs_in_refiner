@@ -354,3 +354,19 @@ không nói rõ camera test xử lý thế nào. CamP cũng ghi chú treehill c�
 không ảnh test trong vòng photometric, vài giây CPU), nguyên nhân vật lý + holdout + liều–đáp ứng, tách train/test và
 cộng hưởng (D2), và câu hỏi mở: **lợi thế của IBR (IBGS/GADA) có phải một phần là bù sai calibration?** — cần chạy IBGS
 trên calib sửa.
+
+### 8.4 Principal point riêng từng ảnh trên truck (video T&T) — +1.08 dB (30/09)
+
+`data/calib/truck_pfpp` (BA: focal + principal point riêng từng ảnh; cx lệch std 13 px, tối đa 30 px @1957 px),
+MCMC thuần qua `run_p4.sh` với `--pp_from_colmap` + `render_pp.py` (patch đã kiểm: dịch cx 8 px → ảnh dịch 4.001 px).
+
+| truck | PSNR | SSIM | LPIPS |
+|---|---|---|---|
+| MCMC, calib phát hành | 26.31 | 0.901 | 0.104 |
+| MCMC, focal riêng | 26.58 (+0.27) | 0.903 | 0.110 |
+| **MCMC, focal + principal point riêng** | **27.39 (+1.08)** | **0.921** | **0.098** |
+| IBGS final / GADA final | 26.10 / 26.19 | | |
+
+**32/32 view test tốt lên** (median +1.02, thấp nhất +0.24). Adam SLAM chỉ tinh chỉnh pose + FoV (truck +0.34), nên
+principal point trôi theo từng frame là phần họ không có. Nghi nguyên nhân: T&T là frame cắt từ video — chống rung điện
+tử (EIS) dời khung crop theo từng frame, tương đương dời principal point. Đang kiểm holdout pfpp trên các scene khác.
