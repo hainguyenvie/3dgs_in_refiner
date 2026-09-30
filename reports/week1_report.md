@@ -302,3 +302,23 @@ sàn 28.5 dB của E10 là do render 3DGS lấy mẫu điểm bị alias, không
 0.25 px → 34–39 dB, 0.5 px → 28–33 dB. ⇒ Với ảnh thật, thứ giết warp là **lệch hình học/pose sub-pixel** và
 visibility/appearance, không phải resample. Nguồn oversampled (full-res, 4×) xoá hẳn phần resample (54–66 dB) nhưng
 phần đó vốn không phải nút thắt. Mọi thứ quy về cùng một biến: **độ chính xác hình học sub-pixel của camera**.
+
+### 8.2 Train lại trên calibration đã sửa (focal riêng từng ảnh) — lượt 1 (30/09, card 0,1,5,6)
+
+MCMC thuần, cùng config/cap_max, cùng tập ảnh test; **chỉ đổi calibration** (`data/calib/<scene>_pf`, dựng bằng
+`scripts/analysis/c5_make_pf.py`: BA trên track của bản phát hành, một focal/ảnh, ảnh lệch >3% đưa về trung vị).
+
+| scene | MCMC (calib phát hành) | **MCMC (calib sửa)** | Δ PSNR | SSIM | LPIPS | so sánh |
+|---|---|---|---|---|---|---|
+| flowers | 22.41 | **23.01** | **+0.60** | 0.658 → 0.693 | 0.286 → 0.269 | GADA 22.29, IBGS 22.34, m1w 22.39 |
+| bicycle | 26.13 / 26.17 (r1/r2) | **26.57** | **+0.40…+0.44** | 0.812 → 0.831 | 0.161 → 0.154 | GADA 26.16, m1w 26.33 |
+| truck | 26.31 | **26.58** | +0.27 | 0.901 → 0.903 | 0.104 → **0.110** | GADA 26.19, m1w 26.38 |
+| drjohnson | 29.50 | **30.22** | **+0.71** | 0.903 → 0.918 | 0.235 → 0.220 | IBGS 29.51; 28/33 view tốt lên, median +0.66 |
+
+Đọc: chỉ sửa camera model (không đổi method) cho +0.3…+0.7 dB — lớn hơn mọi thứ tuần này (field pha: +0.0…+0.3), và
+vượt IBGS/GADA final (IBR hai stage) bằng MCMC một stage thuần. Khớp với dự đoán từ phase-aligned (§4.3: camera test
+lệch làm mất ~0.4–0.8 dB). Truck LPIPS xấu đi nhẹ — cần xem. Lưu ý so sánh công bằng: IBGS/GADA là số trên calib phát
+hành; muốn claim phải chạy lại các baseline trên calib sửa (và ghi rõ protocol: calib dùng keypoint của mọi ảnh như
+SfM gốc, không dùng render).
+
+Patch principal point riêng từng ảnh đã kiểm trên GPU: dịch cx +8 px @COLMAP → ảnh dịch 4.001 px (kỳ vọng 4.002).
