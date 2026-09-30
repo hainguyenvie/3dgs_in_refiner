@@ -1,0 +1,338 @@
+{
+ "outputs/protocolR/mcmc/bicycle_r1": {
+  "psnr": 26.131533050537108,
+  "psnr_phase_aligned": 26.55404861450195,
+  "lpips": 0.1845540565252304,
+  "lpips_phase_aligned": 0.18658108592033387,
+  "views": 25
+ },
+ "outputs/p4/bicycle_p6_m1": {
+  "psnr": 26.265121078491212,
+  "psnr_phase_aligned": 27.00527458190918,
+  "lpips": 0.17470475494861604,
+  "lpips_phase_aligned": 0.1735123747587204,
+  "views": 25
+ },
+ "outputs/protocolR/mcmc/garden_r1": {
+  "psnr": 28.18842601776123,
+  "psnr_phase_aligned": 28.87470308939616,
+  "lpips": 0.10295344082017739,
+  "lpips_phase_aligned": 0.11137104779481888,
+  "views": 24
+ },
+ "outputs/p4/garden_p6_m1": {
+  "psnr": 28.313416957855225,
+  "psnr_phase_aligned": 29.245254119237263,
+  "lpips": 0.0978283379226923,
+  "lpips_phase_aligned": 0.10181979245195787,
+  "views": 24
+ },
+ "outputs/protocolR/mcmc/playroom_oreg001": {
+  "psnr": 30.034418895326812,
+  "psnr_phase_aligned": 30.181796041028253,
+  "lpips": 0.2898973981881964,
+  "lpips_phase_aligned": 0.29257218180031613,
+  "views": 29
+ },
+ "outputs/p4/playroom_p6_m1": {
+  "psnr": 30.49938675452923,
+  "psnr_phase_aligned": 30.827436775996766,
+  "lpips": 0.28680744150589255,
+  "lpips_phase_aligned": 0.28833667420107745,
+  "views": 29
+ },
+ "outputs/protocolR/mcmc/bonsai_r1": {
+  "psnr": 32.78249843700512,
+  "psnr_phase_aligned": 32.76375378789128,
+  "lpips": 0.21273195985201243,
+  "lpips_phase_aligned": 0.21605592643892443,
+  "views": 37
+ },
+ "outputs/p4/bonsai_p6_m1": {
+  "psnr": 32.18881364770838,
+  "psnr_phase_aligned": 32.9624289950809,
+  "lpips": 0.21286856201854912,
+  "lpips_phase_aligned": 0.21552573386076335,
+  "views": 37
+ },
+ "outputs/p4/bonsai_p6_m1_zm": {
+  "psnr": 32.66080639813397,
+  "psnr_phase_aligned": 32.873966010841166,
+  "lpips": 0.21210845700792363,
+  "lpips_phase_aligned": 0.21532493145079226,
+  "views": 37
+ },
+ "outputs/p4/bonsai_p6_m1_anc": {
+  "psnr": 32.785316415735196,
+  "psnr_phase_aligned": 32.84269972105284,
+  "lpips": 0.21191194693784457,
+  "lpips_phase_aligned": 0.21534060465322957,
+  "views": 37
+ },
+ "outputs/p4/bicycle_p6_m1_anc": {
+  "psnr": 26.29242820739746,
+  "psnr_phase_aligned": 26.82873695373535,
+  "lpips": 0.1786711609363556,
+  "lpips_phase_aligned": 0.1794791567325592,
+  "views": 25
+ },
+ "outputs/p4/bicycle_p6_m1_zm": {
+  "psnr": 26.267925796508788,
+  "psnr_phase_aligned": 26.826943588256835,
+  "lpips": 0.17813726931810378,
+  "lpips_phase_aligned": 0.1785812920331955,
+  "views": 25
+ },
+ "outputs/p4/bonsai_p6_m1a": {
+  "psnr": 32.7009381990175,
+  "psnr_phase_aligned": 32.82674516213907,
+  "lpips": 0.21216113422368024,
+  "lpips_phase_aligned": 0.21601218589254328,
+  "views": 37
+ },
+ "outputs/p4/bicycle_p6_m1n": {
+  "psnr": 26.25101577758789,
+  "psnr_phase_aligned": 26.782232208251955,
+  "lpips": 0.17844642281532289,
+  "lpips_phase_aligned": 0.17947297275066376,
+  "views": 25
+ },
+ "outputs/protocolR/mcmc/flowers_r1": {
+  "psnr": 22.411164370450106,
+  "psnr_phase_aligned": 22.793696490201082,
+  "lpips": 0.31693243844942615,
+  "lpips_phase_aligned": 0.3165584220127626,
+  "views": 22
+ },
+ "outputs/p4/flowers_p6_m1n": {
+  "psnr": 22.483976450833406,
+  "psnr_phase_aligned": 23.07624912261963,
+  "lpips": 0.3124551244757392,
+  "lpips_phase_aligned": 0.31144700808958575,
+  "views": 22
+ },
+ "outputs/p4/garden_p6_m1n": {
+  "psnr": 28.25546399752299,
+  "psnr_phase_aligned": 29.038357257843018,
+  "lpips": 0.09973916442443927,
+  "lpips_phase_aligned": 0.10695441191395123,
+  "views": 24
+ },
+ "outputs/protocolR/mcmc/stump_r1": {
+  "psnr": 27.693880558013916,
+  "psnr_phase_aligned": 28.17158555984497,
+  "lpips": 0.19073182344436646,
+  "lpips_phase_aligned": 0.1898561827838421,
+  "views": 16
+ },
+ "outputs/p4/stump_p6_m1n": {
+  "psnr": 27.846983194351196,
+  "psnr_phase_aligned": 28.348241925239563,
+  "lpips": 0.18634405452758074,
+  "lpips_phase_aligned": 0.1850609532557428,
+  "views": 16
+ },
+ "outputs/protocolR/mcmc/treehill_r1": {
+  "psnr": 23.334087265862358,
+  "psnr_phase_aligned": 23.812337239583332,
+  "lpips": 0.30826494759983486,
+  "lpips_phase_aligned": 0.3126291748550203,
+  "views": 18
+ },
+ "outputs/p4/treehill_p6_m1n": {
+  "psnr": 23.34892400105794,
+  "psnr_phase_aligned": 23.866049660576714,
+  "lpips": 0.3032657446132766,
+  "lpips_phase_aligned": 0.30738452408048844,
+  "views": 18
+ },
+ "outputs/p4/bonsai_p6_m1n": {
+  "psnr": 32.7926390879863,
+  "psnr_phase_aligned": 32.88646940282873,
+  "lpips": 0.21187319747499517,
+  "lpips_phase_aligned": 0.21504784516386083,
+  "views": 37
+ },
+ "outputs/protocolR/mcmc/counter_r1": {
+  "psnr": 29.43405418395996,
+  "psnr_phase_aligned": 29.44574114481608,
+  "lpips": 0.21966288685798646,
+  "lpips_phase_aligned": 0.2204628398021062,
+  "views": 30
+ },
+ "outputs/p4/counter_p6_m1n": {
+  "psnr": 29.422199567159016,
+  "psnr_phase_aligned": 29.30272871653239,
+  "lpips": 0.219312251607577,
+  "lpips_phase_aligned": 0.22209458351135253,
+  "views": 30
+ },
+ "outputs/protocolR/mcmc/kitchen_r1": {
+  "psnr": 32.211380113874164,
+  "psnr_phase_aligned": 32.25698907034738,
+  "lpips": 0.133845839543002,
+  "lpips_phase_aligned": 0.13486900223152978,
+  "views": 35
+ },
+ "outputs/p4/kitchen_p6_m1n": {
+  "psnr": 31.927142224993023,
+  "psnr_phase_aligned": 32.006357301984515,
+  "lpips": 0.13411128776414052,
+  "lpips_phase_aligned": 0.13527351149490902,
+  "views": 35
+ },
+ "outputs/protocolR/mcmc/room_r1": {
+  "psnr": 32.48222615168645,
+  "psnr_phase_aligned": 32.475781758626304,
+  "lpips": 0.23942223000220764,
+  "lpips_phase_aligned": 0.2417093236476947,
+  "views": 39
+ },
+ "outputs/p4/room_p6_m1n": {
+  "psnr": 32.40868206513234,
+  "psnr_phase_aligned": 32.446560150537735,
+  "lpips": 0.24008223146964341,
+  "lpips_phase_aligned": 0.24201395687384483,
+  "views": 39
+ },
+ "outputs/protocolR/mcmc/train_r1": {
+  "psnr": 22.609061467020137,
+  "psnr_phase_aligned": 23.049347300278512,
+  "lpips": 0.21952390239426964,
+  "lpips_phase_aligned": 0.2200228803251919,
+  "views": 38
+ },
+ "outputs/p4/train_p6_m1n": {
+  "psnr": 22.652256965637207,
+  "psnr_phase_aligned": 23.0914407529329,
+  "lpips": 0.21639152420194527,
+  "lpips_phase_aligned": 0.2162204329904757,
+  "views": 38
+ },
+ "outputs/protocolR/mcmc/truck_r1": {
+  "psnr": 26.313207507133484,
+  "psnr_phase_aligned": 27.111772060394287,
+  "lpips": 0.1259301477111876,
+  "lpips_phase_aligned": 0.13030783482827246,
+  "views": 32
+ },
+ "outputs/p4/truck_p6_m1n": {
+  "psnr": 26.32229834794998,
+  "psnr_phase_aligned": 27.274632215499878,
+  "lpips": 0.12086000852286816,
+  "lpips_phase_aligned": 0.12378863198682666,
+  "views": 32
+ },
+ "outputs/protocolR/mcmc/drjohnson_r1": {
+  "psnr": 29.5045341722893,
+  "psnr_phase_aligned": 29.84778675888524,
+  "lpips": 0.3048746463927356,
+  "lpips_phase_aligned": 0.30552497731916833,
+  "views": 33
+ },
+ "outputs/p4/drjohnson_p6_m1n": {
+  "psnr": 29.45643124435887,
+  "psnr_phase_aligned": 29.698923284357246,
+  "lpips": 0.30271057016921765,
+  "lpips_phase_aligned": 0.3070027995290178,
+  "views": 33
+ },
+ "outputs/p4/playroom_p6_m1n": {
+  "psnr": 30.17002191214726,
+  "psnr_phase_aligned": 30.45306396484375,
+  "lpips": 0.29140651380193644,
+  "lpips_phase_aligned": 0.2927647412850939,
+  "views": 29
+ },
+ "outputs/p4/flowers_p6_m1": {
+  "psnr": 22.111691995100543,
+  "psnr_phase_aligned": 23.397364789789375,
+  "lpips": 0.3102076717398383,
+  "lpips_phase_aligned": 0.3042566661130298,
+  "views": 22
+ },
+ "outputs/p4/stump_p6_m1": {
+  "psnr": 27.75064182281494,
+  "psnr_phase_aligned": 28.525825023651123,
+  "lpips": 0.1834114626981318,
+  "lpips_phase_aligned": 0.179619369097054,
+  "views": 16
+ },
+ "outputs/p4/treehill_p6_m1": {
+  "psnr": 23.340742535061306,
+  "psnr_phase_aligned": 24.075292693244087,
+  "lpips": 0.2999053820967674,
+  "lpips_phase_aligned": 0.3015446621510718,
+  "views": 18
+ },
+ "outputs/p4/counter_p6_m1": {
+  "psnr": 29.258218065897623,
+  "psnr_phase_aligned": 29.376698366800944,
+  "lpips": 0.22073524792989094,
+  "lpips_phase_aligned": 0.22339718341827391,
+  "views": 30
+ },
+ "outputs/p4/kitchen_p6_m1": {
+  "psnr": 31.954991149902344,
+  "psnr_phase_aligned": 32.364202335902625,
+  "lpips": 0.13428131810256413,
+  "lpips_phase_aligned": 0.13546003890889033,
+  "views": 35
+ },
+ "outputs/p4/room_p6_m1": {
+  "psnr": 32.25878519889636,
+  "psnr_phase_aligned": 32.24828612498748,
+  "lpips": 0.2404636996678817,
+  "lpips_phase_aligned": 0.2453319021524527,
+  "views": 39
+ },
+ "outputs/p4/train_p6_m1": {
+  "psnr": 22.624683329933568,
+  "psnr_phase_aligned": 23.197338756762054,
+  "lpips": 0.21401341690828926,
+  "lpips_phase_aligned": 0.21225459167831823,
+  "views": 38
+ },
+ "outputs/p4/truck_p6_m1": {
+  "psnr": 26.402583599090576,
+  "psnr_phase_aligned": 27.52607250213623,
+  "lpips": 0.12429845845326781,
+  "lpips_phase_aligned": 0.1254215978551656,
+  "views": 32
+ },
+ "outputs/p4/drjohnson_p6_m1": {
+  "psnr": 29.477267930001922,
+  "psnr_phase_aligned": 30.03927739461263,
+  "lpips": 0.301464500300812,
+  "lpips_phase_aligned": 0.2999222373420542,
+  "views": 33
+ },
+ "outputs/p4/playroom_p6_m1w": {
+  "psnr": 30.481106199067213,
+  "psnr_phase_aligned": 30.711612175250874,
+  "lpips": 0.28744374986352594,
+  "lpips_phase_aligned": 0.289929928964582,
+  "views": 29
+ },
+ "outputs/p4/playroom_p6_m1w:ours_30000_sh": {
+  "psnr": 30.521272593531116,
+  "psnr_phase_aligned": 30.71872645410998,
+  "lpips": 0.2871106929820159,
+  "lpips_phase_aligned": 0.2894665377921072,
+  "views": 29
+ },
+ "outputs/p4/flowers_p6_m1w": {
+  "psnr": 20.92356387051669,
+  "psnr_phase_aligned": 23.137514894658867,
+  "lpips": 0.32748891006816516,
+  "lpips_phase_aligned": 0.306946264071898,
+  "views": 22
+ },
+ "outputs/p4/flowers_p6_m1w:ours_30000_sh": {
+  "psnr": 22.389733487909492,
+  "psnr_phase_aligned": 23.21028405969793,
+  "lpips": 0.3070786575024778,
+  "lpips_phase_aligned": 0.3047851879488338,
+  "views": 22
+ }
+}
