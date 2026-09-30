@@ -269,12 +269,26 @@ Tensara mô tả.
 
 **C4 — holdout (điểm 3D không tham gia BA, triangulate lại bằng camera mới)** (`c4_holdout_calib.py`):
 
-| scene | shared camera (bản phát hành) | **focal riêng từng ảnh** | + principal point |
+| scene | shared camera (bản phát hành) | **focal riêng từng ảnh** | Δ |
 |---|---|---|---|
-| flowers | 1.159 px | **0.986 (−15%)** | 1.151 |
-| bicycle | 1.135 | **1.045 (−8%)** | 1.132 |
-| kitchen | 0.530 | **0.514 (−3%)** | 0.528 |
-| truck | 0.671 | **0.630 (−6%)** | 0.671 |
+| flowers | 1.159 px | **0.986** | −15% (focal + pp riêng: 0.964, −17%) |
+| bicycle | 1.135 | 1.045 | −8% |
+| garden | 1.189 | 1.127 | −5% |
+| stump | 1.076 | 0.995 | −8% |
+| treehill | 1.002 | **0.853** | −15% |
+| bonsai | 0.726 | 0.688 | −5% |
+| counter | 0.584 | 0.582 | 0% |
+| kitchen | 0.530 | 0.514 | −3% |
+| room | 0.675 | 0.670 | −1% |
+| train | 0.669 | **0.577** | −14% |
+| truck | 0.671 | 0.630 | −6% (focal + pp riêng: **0.514, −23%**) |
+| drjohnson | 0.527 | **0.412** | −22% |
+| playroom | 0.493 | 0.473 | −4% |
+
+Principal point *chung* không giúp; principal point *riêng từng ảnh* giúp thêm mạnh ở truck (video — nghi chống rung /
+crop). 11/13 scene cải thiện trên điểm holdout, cả 3 dataset. EXIF đã bị xoá khỏi mọi ảnh phát hành nên không xác minh
+trực tiếp nguyên nhân vật lý (focus breathing, chống rung, zoom không khoá). Pipeline chuẩn `convert.py` của 3DGS/MCMC
+chạy COLMAP với `--ImageReader.single_camera 1`, tức là ép một camera chung — một lựa chọn mặc định của cộng đồng.
 
 Focal lệch giữa các ảnh std 0.13–0.22% (range 0.6–1.3%) ≈ 1.3–3.7 px ở mép ảnh full res ≈ **0.3–0.9 px ở độ phân giải
 train** — cùng bậc với ngân sách sub-pixel của cả dự án. Đây là một lỗi camera model thật (generalise trên điểm
