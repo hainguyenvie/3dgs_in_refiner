@@ -375,3 +375,7 @@ Holdout thêm principal point riêng (so với chỉ focal riêng): **train −1
 scene ảnh tĩnh chỉ 0…−4% (garden −3.5, drjohnson −3.7, bonsai −3.2, còn lại ≤ −2.5; kitchen/counter/room ≈ 0). ⇒
 principal point trôi theo frame là đặc trưng của video (khớp giả thuyết EIS). Dự đoán kiểm chứng: train pfpp phải lên
 như truck (≈ +0.8…+1.2 thay vì +0.35). treehill seed 2 trên calib focal-riêng: 24.64 (seed 1: 24.60) → +1.27…+1.31.
+
+**Field pha (m1n) trên calib đã sửa**: flowers 23.01 → 23.07 (+0.06, ≈ nhiễu); treehill 24.60/24.64 → **24.82
+(+0.18…+0.22)**; tổng treehill so với MCMC gốc **+1.49**. Calibration từ keypoint lấy gần hết phần field pha từng lấy
+(flowers: field một mình +0.0, calib +0.60); field chỉ còn cộng thêm ở scene có lệch pha dư lớn.
