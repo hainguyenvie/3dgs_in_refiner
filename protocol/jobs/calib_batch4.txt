@@ -1,0 +1,2 @@
+# per-image focal + principal point on the other T&T video scene
+train_pfpp_mcmc | NO_FIELDS=1 PP=1 SRC_OVERRIDE=$PWD/data/calib/train_pfpp EXTRA="--pp_from_colmap" bash scripts/run_p4.sh train 1.0 calib_train_pfpp_mcmc

@@ -1,0 +1,3 @@
+# scale-gauge control: treehill_pf drifted to 1.339x the released scale; treehill_pfa = same calibration, Sim3-aligned (ratio 1.0)
+treehill_pfa_mcmc | NO_VGATE=1 SRC_OVERRIDE=$PWD/data/calib/treehill_pfa OUT_OVERRIDE=$PWD/outputs/calib/runs/treehill_mcmc_pfa bash scripts/run_gs_baseline.sh mcmc treehill pfa
+flowers_pfa_mcmc  | NO_VGATE=1 SRC_OVERRIDE=$PWD/data/calib/flowers_pfa  OUT_OVERRIDE=$PWD/outputs/calib/runs/flowers_mcmc_pfa  bash scripts/run_gs_baseline.sh mcmc flowers pfa

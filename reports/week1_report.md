@@ -1,4 +1,4 @@
-# Week 1 — Báo cáo tổng hợp (cập nhật 29/09/2026, 01:55 UTC — thí nghiệm GPU tạm dừng, card đã nhả)
+# Week 1 — Báo cáo tổng hợp (cập nhật 30/09/2026, 07:15 UTC — thí nghiệm GPU tạm dừng, card 0/1/5/6 đã nhả)
 
 Một file duy nhất cho toàn bộ tuần 1: mục tiêu, baseline, chuỗi chẩn đoán, method, kết quả 13 scene, các thí nghiệm
 đã đóng (kể cả null), định vị so với prior art, và việc đang chạy. Các file `reports/*.md/json` khác chỉ là log số
@@ -7,6 +7,16 @@ liệu thô do script sinh ra; mọi thứ cần đọc nằm ở đây.
 ---
 
 ## 0. Tóm tắt một trang
+
+> **Cập nhật 30/09 — kết quả mạnh nhất tuần (§8): sửa calibration camera của chính benchmark.** Audit kiểu Tensara
+> tìm ra lỗi camera model bị BA của bản phát hành hấp thụ: **focal thay đổi theo từng ảnh** (mọi dataset; `convert.py`
+> ép `single_camera 1`) và **principal point trôi theo frame** (chỉ video T&T). Kiểm chứng bằng holdout (điểm 3D không
+> tham gia BA). Train lại MCMC thuần (một stage, không đổi method) trên calib sửa: **Mip-360 28.30 → 28.69 (+0.39),
+> T&T 24.46 → 25.31 (+0.85), DB 29.77 → 30.21 (+0.44)** — ngang/vượt IBGS & GADA final trên cả ba (trừ indoor Mip-360).
+> treehill +1.27…+1.36 (3 run, kể cả đối chứng tỉ lệ), truck +1.08 (32/32 view), drjohnson +0.71. Liều–đáp ứng: gain
+> theo mức cải thiện holdout, Spearman ρ = 0.95 (n = 13). **Prior art trùng hiệu ứng tổng:** Adam SLAM (arXiv 2508.20526,
+> +0.43 dB bằng tối ưu pose+FoV qua 3DGS) — phần principal point theo frame, protocol chỉ-keypoint, nguyên nhân vật lý,
+> tách train/test và câu hỏi về IBR là phần họ không có.
 
 - **Mục tiêu**: từ intuition của Tensara (refiner post-hoc có điều kiện láng giềng) → đưa tín hiệu đó *vào training*
   để inference **một stage** (không cần ảnh nguồn lúc test), và vượt IBGS/GADA trên Mip-NeRF 360 / T&T / DB.
@@ -207,17 +217,14 @@ này), không phải của field pha; cần ghi chú trong paper hoặc bỏ pla
 
 ## 7. Trạng thái và việc tiếp theo
 
-- **Trạng thái (29/09, 01:55 UTC): thí nghiệm GPU tạm dừng theo yêu cầu; không job nào chạy; cả 8 card trống.**
-  Chờ quyết định hướng đi mới trước khi chạy thêm.
-- Việc còn dở nếu tiếp tục hướng này (không cần GPU nhiều): đo thời gian train m1w vs MCMC; viết bảng 4.1 + 4.3 song
-  song, hình σ_eff(σ_pose) (E7), phân rã field → pose/intrinsics (§3), so sánh CamP. Một lần duy nhất: ghép cap vào
-  recipe m1w cho indoor (kitchen m1n_cap −0.03 vs m1w −0.18).
+- **Trạng thái (30/09, 07:15 UTC): thí nghiệm GPU tạm dừng theo yêu cầu; không job nào của dự án chạy; card 0,1,5,6
+  trống (2,3,4,7 thuộc dự án khác).** Chờ quyết định hướng đi.
+- Đã chuẩn bị nhưng **chưa chạy**: IBGS trên calib sửa (`protocol/jobs/calib_ibgs.txt`: flowers, treehill, drjohnson,
+  bonsai; 4 × 1.5–1.9 h) — trả lời "lợi thế IBR có phải một phần là bù sai calibration?".
+- Việc còn mở nếu đi theo hướng calibration: (1) principal point theo frame cho mọi scene video; (2) baseline 3DGS/IBGS
+  trên calib sửa để xem thứ hạng có đổi; (3) seed 2 cho các gain lớn còn 1 seed (truck/train pfpp, drjohnson);
+  (4) search kỹ thêm prior art ngoài Adam SLAM/CamP; (5) viết protocol calib-chỉ-keypoint + phát hành calib.
 - Không làm nữa: mọi thứ trong §5.
-- Ba điều rút ra cho việc chọn hướng: (1) trần của "sửa camera train" ≈ +0.3 dB/scene trên protocol chuẩn vì camera test
-  cũng sai pose và không được chạm — đẩy thêm là tuning; (2) gap lớn thật (1.5–2.7 dB) ở indoor là colour aggregation
-  nhiều nguồn của IBR — one-stage muốn lấy phải học được appearance/LF theo view, không phải hình học; (3) E7 cho thấy
-  trần thật của Gaussian cao hơn hiện tại vài dB nếu dữ liệu nhất quán — hoặc làm dữ liệu nhất quán bằng cách khác
-  (render "mờ theo pha đúng" thay vì mờ trung bình), hoặc đề xuất protocol/benchmark với camera test được cân chỉnh.
 
 ### Vị trí code
 `src/phase/train_mcmc_phase.py` (trainer), `scripts/run_p4.sh` / `launch_p6.sh` / `collect_p6.py` (chạy & bảng),
@@ -379,3 +386,57 @@ như truck (≈ +0.8…+1.2 thay vì +0.35). treehill seed 2 trên calib focal-r
 **Field pha (m1n) trên calib đã sửa**: flowers 23.01 → 23.07 (+0.06, ≈ nhiễu); treehill 24.60/24.64 → **24.82
 (+0.18…+0.22)**; tổng treehill so với MCMC gốc **+1.49**. Calibration từ keypoint lấy gần hết phần field pha từng lấy
 (flowers: field một mình +0.0, calib +0.60); field chỉ còn cộng thêm ở scene có lệch pha dư lớn.
+
+### 8.5 Tổng kết hướng calibration (30/09, kết thúc lượt chạy)
+
+**Bảng cuối** — MCMC thuần, cùng config, cùng ảnh test; chỉ đổi calibration (Mip-360/DB: focal riêng từng ảnh; T&T:
+focal + principal point riêng từng ảnh):
+
+| scene | MCMC (calib phát hành) | **MCMC (calib sửa)** | Δ | IBGS final | GADA final |
+|---|---|---|---|---|---|
+| bicycle | 26.13 | 26.57 | +0.44 | 26.06 | 26.16 |
+| flowers | 22.41 | 23.01 | +0.60 | 22.34 | 22.29 |
+| garden | 28.19 | 28.57 | +0.38 | 27.57 | 27.74 |
+| stump | 27.69 | 28.01 | +0.32 | 27.31 | 27.33 |
+| treehill | 23.33 | 24.60 / 24.65 / 24.69 | **+1.27…+1.36** | 23.06 | 23.16 |
+| bonsai | 32.78 | 33.02 | +0.24 | 34.98 | 35.37 |
+| counter | 29.43 | 29.47 | +0.04 | 30.65 | 30.84 |
+| kitchen | 32.21 | 32.37 | +0.15 | 32.10 | 32.09 |
+| room | 32.48 | 32.56 | +0.08 | 32.68 | 32.67 |
+| **Mip-360 (9)** | **28.30** | **28.69** | **+0.39** | 28.53 | 28.63 |
+| train | 22.61 | 23.23 (focal riêng: 22.95) | **+0.62** | 23.69 | 23.67 |
+| truck | 26.31 | 27.39 (focal riêng: 26.58) | **+1.08** | 26.10 | 26.19 |
+| **T&T (2)** | **24.46** | **25.31** | **+0.85** | 24.89 | 24.93 |
+| drjohnson | 29.50 | 30.22 | +0.71 | 29.51 | — |
+| playroom | 30.03 | 30.21 | +0.18 | 30.34 | — |
+| **DB (2)** | **29.77** | **30.21** | **+0.44** | 29.92 | 30.22 |
+
+SSIM/LPIPS tốt lên đều (vd. treehill 0.678 → 0.759 / 0.268 → 0.228; truck 0.901 → 0.921 / 0.104 → 0.098).
+
+**Kiểm soát đã làm**
+- Holdout (điểm 3D không tham gia BA): focal riêng cải thiện 11/13 scene (−3…−22%); principal point riêng chỉ đáng kể
+  ở hai scene video T&T (−18/−19%). Dự đoán train pfpp lên nhiều như truck → đúng (+0.62 so với +0.35).
+- Liều–đáp ứng: Spearman ρ = 0.95 giữa gain PSNR và mức cải thiện holdout; hai scene đối chứng (holdout ≈ 0) counter
+  +0.04, room +0.08.
+- Seed: treehill 3 run (24.60 / 24.65 / 24.69), bicycle và stump so với MCMC r1/r2.
+- **Tỉ lệ (gauge)**: BA với intrinsics tự do có thể trôi tỉ lệ scene (train pfpp co 200× → run hỏng, đã dừng, sửa bằng
+  căn Sim3 về hệ gốc trong `c5_make_pf.py`; treehill pf trôi 1.34×). Đối chứng căn tỉ lệ về 1.0: treehill 24.69,
+  flowers 23.02 — gain không đến từ tỉ lệ.
+- Tách train/test (D2): phía train +0.17…+0.30, phía test +0.08…+0.14, còn lại là cộng hưởng (model sắc cần camera test
+  đúng).
+- Field pha trên calib sửa: flowers +0.06 (≈ nhiễu), treehill +0.2 → calib lấy gần hết phần field từng lấy.
+
+**Đọc thẳng về novelty**
+- Hiệu ứng tổng "sửa calibration → +0.4 dB" đã có trong Adam SLAM (arXiv 08/2025). Riêng phần này không đủ làm
+  contribution chính.
+- Phần mới: principal point trôi theo frame ở video T&T (+1.08/+0.62; Adam SLAM chỉ +0.34/+0.49 với pose+FoV);
+  protocol chỉ dùng keypoint (không render, không ảnh test trong vòng photometric, vài giây CPU); nguyên nhân vật lý +
+  holdout + liều–đáp ứng + đối chứng; tách train/test và nối với chuỗi chẩn đoán E-chain / N2b.
+- Câu hỏi mở có giá trị nhất: **sau khi sửa calibration, MCMC một stage đã ngang/vượt IBR ở outdoor/T&T/DB — lợi thế
+  của IBR có phải một phần là bù sai calibration?** Cần IBGS trên calib sửa (job đã chuẩn bị, chưa chạy).
+
+**Code của hướng này**: `scripts/analysis/c1_calib_audit.py` (audit + BA biến thể), `c4_holdout_calib.py` (holdout),
+`c5_make_pf.py` (dựng calib sửa, có căn Sim3), `d2_refit_test_cams.py` + `src/phase/render_cams_json.py` (tách
+train/test), `src/phase/pp_patch.py` + `render_pp.py` + `--pp_from_colmap` (principal point riêng từng ảnh),
+`scripts/launch_calib_pf.sh`, `scripts/launch_queue.sh` (hàng đợi có kiểm card trống). Dữ liệu calib sửa:
+`data/calib/<scene>_{pf,pfpp,pfa}` trên server (ảnh symlink tới bản phát hành).
