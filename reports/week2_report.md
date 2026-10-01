@@ -17,7 +17,7 @@
 | **Đòn bẩy thật: tin ảnh thật đến tần số nào, ở vùng nào** | Mức tin ảnh thật phụ thuộc **băng tần × support × scene**. Ở 5/8 scene ảnh thật đúng ở tần thấp, sai ở tần cao (lệch đăng ký sub-pixel). Ở garden/stump ảnh thật thua ở mọi băng; ở truck thua ở băng thô nhất (phơi sáng). **Đúng ở 8/8:** không có nguồn thì ảnh thật thua ở mọi băng. ⇒ cần gate học được, không phải tách băng cố định. | Phổ sai số theo băng tần trên 8 scene (§3.2). |
 | **Phương pháp** | Gate học được, trộn MCMC / IBGS / residual-trên-MCMC **theo băng Laplacian**, có điều kiện trên evidence (support, disagreement, biên depth test) | LOSO: gate không thấy GT của scene được chấm. |
 | **Gate train chỉ trên Shiny, zero-shot 13 scene** | Mip-360 29.15 (+0.52 so với GADA), T&T 25.50 (+0.57), DB 30.14 (−0.08). Không view benchmark nào được dùng để học. | §4.0b |
-| **Kết quả gate (LOSO, đủ 13 scene)** | **Mip-360 29.26** (GADA 28.63, +0.63; IBGS 28.47/28.53, +0.79/+0.73) — thắng GADA 9/9 scene. **T&T 25.54** (GADA 24.93, +0.61). **DB 30.14** (GADA 30.22, −0.08) — base MCMC playroom yếu do config repo thiếu `opacity_reg` (đang chạy lại với config tuần 1). SSIM/LPIPS tốt hơn ở cả ba dataset. | §4.0 |
+| **Kết quả gate (LOSO, đủ 13 scene)** | **Mip-360 29.26** (GADA 28.63, +0.63; IBGS 28.47/28.53, +0.79/+0.73) — thắng GADA 9/9 scene. **T&T 25.54** (GADA 24.93, +0.61). **DB 30.40** (GADA 30.22, +0.18) với MCMC playroom dùng config tuần 1 (config repo thiếu `opacity_reg`: 30.14, −0.08). SSIM/LPIPS tốt hơn ở cả ba dataset. | §4.0 |
 | **Baseline không học (8 scene)** | "Băng mịn nhất từ MCMC, băng thô từ ảnh thật nơi có nguồn" **không thua cả MCMC lẫn IBGS ở scene nào trong 8**; hơn GADA (paper) ở 7/8 (thua ở bonsai: 35.23 vs 35.37). Gain nhỏ ở garden (+0.02 so với MCMC), lớn ở kitchen (+0.63). | §4.2 |
 
 **Intuition một câu:** ảnh warp ≈ ảnh đích bị dịch δ sub-pixel (do pose, calib, depth), nên sai số của nó ở tần số ω tăng
@@ -164,14 +164,18 @@ Gate train trên view test của 12 scene còn lại, chấm trên scene giữ l
 | truck | 26.42 | 26.18 | 26.72 | **26.89** / .907 / .126 | 26.10 | 26.19 | +0.70 |
 | drjohnson | 29.32 | 29.74 | 29.46 | **30.14** / .914 / .285 | 29.51 | — | — |
 | playroom | 29.48 | 30.15 | 29.54 | 30.13 / .910 / .301 | 30.34 | — | — |
+| playroom (MCMC config tuần 1, `opacity_reg 0.001`) | 30.07 | 30.15 | 30.11 | **30.64** / .913 / .283 | 30.34 | — | — |
+| drjohnson (cùng lần chạy, playroom sửa trong tập train) | 29.32 | 29.74 | 29.46 | **30.16** / .914 / .286 | 29.51 | — | — |
 | **Mip-360** | 28.32 / .844 / .212 | 28.47 / .839 / .215 | 28.86 | **29.26** / .856 / .198 | 28.53 | 28.63 | **+0.63** |
 | **T&T** | 24.57 / .867 / .180 | 24.98 / .869 / .172 | 25.33 | **25.54** / .883 / .160 | 24.89 | 24.93 | **+0.61** |
-| **DB** | 29.40 / .901 / .312 | 29.94 / .910 / .303 | 29.50 | **30.14** / .912 / .293 | 29.92 | 30.22 | −0.08 |
+| **DB** | 29.40 / .901 / .312 | 29.94 / .910 / .303 | 29.50 | 30.14 / .912 / .293 | 29.92 | 30.22 | −0.08 |
+| **DB (playroom config tuần 1)** | 29.70 | 29.94 | 29.79 | **30.40** / .914 / .285 | 29.92 | 30.22 | **+0.18** |
 
 - Mip-360: thắng GADA ở **9/9 scene**; outdoor +0.63…+0.92, indoor +0.04…+0.91.
-- DB: base MCMC playroom ở lần này là 29.48, trong khi tuần 1 (config có `opacity_reg 0.001`, giống config drjohnson của
-  tác giả) là 30.03 — config playroom trong repo MCMC thiếu tham số này (đã ghi nhận ở tuần 1). ⏳ Đang train lại playroom
-  với config tuần 1 và chấm lại 2 scene DB; sẽ báo cả hai bản.
+- DB: base MCMC playroom với config repo là 29.48; với config tuần 1 (`opacity_reg 0.001`, giống config drjohnson của tác
+  giả — repo thiếu tham số này ở playroom, đã ghi nhận tuần 1) là **30.07** (tuần 1: 30.03). Với base này gate playroom
+  **30.64**, DB **30.40 > GADA 30.22 (+0.18)**. Báo cả hai bản; bản config tuần 1 là bản nhất quán với baseline tuần 1.
+  ⏳ Đang chạy lại toàn bộ LOSO-13 với playroom sửa trong tập train của mọi fold để bảng cuối nhất quán.
 - MCMC drjohnson 29.32 (tuần 1: 29.50) — dao động seed lớn hơn thường lệ ở scene này.
 
 ### 4.0b Giao thức sạch nhất — gate train **chỉ trên Shiny** (3 scene ngoài benchmark), zero-shot cho 13 scene
@@ -189,6 +193,15 @@ checkpoint tác giả, cùng pipeline.
 
 Zero-shot từ một dataset khác chỉ kém LOSO 0.11 dB trên Mip-360 và vẫn hơn GADA +0.52 (Mip-360), +0.57 (T&T), thắng 11/11
 scene có số GADA. ⇒ Cơ chế phân xử theo băng tần **khái quát qua dataset**; kết quả không đến từ việc học trên benchmark.
+
+### 4.0c LODO — gate không thấy cả dataset được chấm (train trên 2 dataset còn lại)
+
+| scene (Mip-360, gate train chỉ trên T&T + DB) | bicycle | flowers | garden | stump | treehill | bonsai | ⏳ |
+|---|---|---|---|---|---|---|---|
+| LODO | 26.79 | 23.15 | 28.45 | 28.14 | 24.05 | 35.47 | counter/kitchen/room … |
+| LOSO | 26.79 | 23.16 | 28.48 | 28.19 | 24.08 | 35.41 | |
+
+LODO gần như trùng LOSO: gate không cần thấy dataset được chấm.
 
 ### 4.1 Gate theo băng tần, LOSO (PSNR / SSIM / LPIPS)
 
