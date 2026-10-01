@@ -16,6 +16,7 @@
 | **Hướng 1 gốc: chọn ảnh nguồn nào** | **Ít dư địa** → dừng theo gate R0 của plan | Oracle chọn tập nguồn trên toàn ảnh chỉ +0.12 dB (bonsai, counter). Coverage-K **kém** nearest-K (§2). |
 | **Đòn bẩy thật: tin ảnh thật đến tần số nào, ở vùng nào** | Mức tin ảnh thật phụ thuộc **băng tần × support × scene**. Ở 5/8 scene ảnh thật đúng ở tần thấp, sai ở tần cao (lệch đăng ký sub-pixel). Ở garden/stump ảnh thật thua ở mọi băng; ở truck thua ở băng thô nhất (phơi sáng). **Đúng ở 8/8:** không có nguồn thì ảnh thật thua ở mọi băng. ⇒ cần gate học được, không phải tách băng cố định. | Phổ sai số theo băng tần trên 8 scene (§3.2). |
 | **Phương pháp** | Gate học được, trộn MCMC / IBGS / residual-trên-MCMC **theo băng Laplacian**, có điều kiện trên evidence (support, disagreement, biên depth test) | LOSO: gate không thấy GT của scene được chấm. |
+| **Gate train chỉ trên Shiny, zero-shot 13 scene** | Mip-360 29.15 (+0.52 so với GADA), T&T 25.50 (+0.57), DB 30.14 (−0.08). Không view benchmark nào được dùng để học. | §4.0b |
 | **Kết quả gate (LOSO, đủ 13 scene)** | **Mip-360 29.26** (GADA 28.63, +0.63; IBGS 28.47/28.53, +0.79/+0.73) — thắng GADA 9/9 scene. **T&T 25.54** (GADA 24.93, +0.61). **DB 30.14** (GADA 30.22, −0.08) — base MCMC playroom yếu do config repo thiếu `opacity_reg` (đang chạy lại với config tuần 1). SSIM/LPIPS tốt hơn ở cả ba dataset. | §4.0 |
 | **Baseline không học (8 scene)** | "Băng mịn nhất từ MCMC, băng thô từ ảnh thật nơi có nguồn" **không thua cả MCMC lẫn IBGS ở scene nào trong 8**; hơn GADA (paper) ở 7/8 (thua ở bonsai: 35.23 vs 35.37). Gain nhỏ ở garden (+0.02 so với MCMC), lớn ở kitchen (+0.63). | §4.2 |
 
@@ -172,6 +173,22 @@ Gate train trên view test của 12 scene còn lại, chấm trên scene giữ l
   tác giả) là 30.03 — config playroom trong repo MCMC thiếu tham số này (đã ghi nhận ở tuần 1). ⏳ Đang train lại playroom
   với config tuần 1 và chấm lại 2 scene DB; sẽ báo cả hai bản.
 - MCMC drjohnson 29.32 (tuần 1: 29.50) — dao động seed lớn hơn thường lệ ở scene này.
+
+### 4.0b Giao thức sạch nhất — gate train **chỉ trên Shiny** (3 scene ngoài benchmark), zero-shot cho 13 scene
+
+Không một view nào của Mip-360 / T&T / DB được dùng để học. Shiny: dữ liệu NeX đã xử lý của tác giả IBGS, MCMC + IBGS
+checkpoint tác giả, cùng pipeline.
+
+| scene | Shiny zero-shot | LOSO | GADA (paper) |
+|---|---|---|---|
+| bicycle / flowers / garden / stump / treehill | 26.66 / 23.03 / 28.39 / 28.08 / 23.65 | 26.79 / 23.16 / 28.48 / 28.19 / 24.08 | 26.16 / 22.29 / 27.74 / 27.33 / 23.16 |
+| bonsai / counter / kitchen / room | 35.50 / 31.02 / 32.85 / 33.13 | 35.41 / 30.99 / 33.00 / 33.19 | 35.37 / 30.84 / 32.09 / 32.67 |
+| train / truck | 24.15 / 26.85 | 24.19 / 26.89 | 23.67 / 26.19 |
+| drjohnson / playroom | 30.13 / 30.15 | 30.14 / 30.13 | — |
+| **Mip-360 / T&T / DB** | **29.15 / 25.50 / 30.14** | 29.26 / 25.54 / 30.14 | 28.63 / 24.93 / 30.22 |
+
+Zero-shot từ một dataset khác chỉ kém LOSO 0.11 dB trên Mip-360 và vẫn hơn GADA +0.52 (Mip-360), +0.57 (T&T), thắng 11/11
+scene có số GADA. ⇒ Cơ chế phân xử theo băng tần **khái quát qua dataset**; kết quả không đến từ việc học trên benchmark.
 
 ### 4.1 Gate theo băng tần, LOSO (PSNR / SSIM / LPIPS)
 
