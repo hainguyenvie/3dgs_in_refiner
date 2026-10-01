@@ -23,25 +23,73 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 CANDS = ("mcmc", "ibgs_final", "mcmc_res")
 
 
+BAND_FEATS = {"on": False, "L": 5, "aff": False}
+
+
+def mcmc_affine(z):
+    """MCMC corrected by a 3x4 colour affine fitted to the nearest source's valid warp (IBGS's exposure model on MCMC)."""
+    I = torch.from_numpy(z["mcmc"].astype(np.float32)).cuda()
+    if z["warps"].shape[0] == 0 or not z["valid"][0].any():
+        return I
+    Wp = torch.from_numpy(z["warps"][0].astype(np.float32)).cuda(); m = torch.from_numpy(z["valid"][0]).cuda()
+    X = I[:, m].T; Y = Wp[:, m].T
+    if X.shape[0] < 100:
+        return I
+    A = torch.linalg.lstsq(torch.cat([X, torch.ones_like(X[:, :1])], 1), Y).solution
+    flat = I.flatten(1).T
+    return (torch.cat([flat, torch.ones_like(flat[:, :1])], 1) @ A).T.view_as(I).clamp(0, 1)
+
+
+def band_evidence(z, L):
+    """Per Laplacian band l: log local energy of (IBGS final - MCMC) and of the spread across valid source warps,
+    upsampled to full resolution -> 2L x H x W (the two quantities of the Wiener weight w_E = 1 - S_E / (S_I + S_E))."""
+    g = lambda k: torch.from_numpy(z[k].astype(np.float32)).cuda()
+    I, E = g("mcmc")[None], g("ibgs_final")[None]; Wp = g("warps"); V = torch.from_numpy(z["valid"]).cuda()
+    H, W = I.shape[-2:]
+    nv = V.float().sum(0)
+    mu = (Wp * V[:, None]).sum(0, keepdim=True) / nv.clamp_min(1)[None, None]
+    Wf = torch.where(V[:, None], Wp, mu.expand_as(Wp)) if Wp.shape[0] else I
+    def pyr(x):
+        G = [x]
+        for _ in range(L - 1):
+            G.append(F.avg_pool2d(G[-1], 2, ceil_mode=True))
+        return [G[l] - F.interpolate(G[l + 1], size=G[l].shape[-2:], mode="bilinear", align_corners=False) for l in range(L - 1)] + [G[-1]]
+    PI, PE, PW = pyr(I), pyr(E), pyr(Wf)
+    out = []
+    for l in range(L):
+        d = ((PE[l] - PI[l]) ** 2).mean(1, keepdim=True)
+        v = ((PW[l] - PW[l].mean(0, keepdim=True)) ** 2).mean(1, keepdim=True).mean(0, keepdim=True)
+        for t in (d, v):
+            t = F.avg_pool2d(t, 5, stride=1, padding=2, count_include_pad=False)
+            out.append(F.interpolate(t, size=(H, W), mode="bilinear", align_corners=False)[0, 0])
+    return ((torch.log10(torch.stack(out) + 1e-6) + 4) / 2).clamp(-2, 2)
+
+
 def load_view(f):   # kept on the GPU in fp16; cast per crop
     z = np.load(f)
     g = lambda a: torch.from_numpy(a).cuda().half()
-    return g(np.stack([z[k] for k in CANDS])), g(z["gt"]), g(z["feats"]), g(z["ibgs_raw"])
+    bf = band_evidence(z, BAND_FEATS["L"]).half() if BAND_FEATS["on"] else None
+    c = g(np.stack([z[k] for k in CANDS]))
+    if BAND_FEATS["aff"]:   # extra candidate appended after the three standard ones
+        c = torch.cat([c, mcmc_affine(z).half()[None]])
+    return c, g(z["gt"]), g(z["feats"]), g(z["ibgs_raw"]), bf
 
 
-FEAT_GROUPS = {"color": list(range(0, 9)), "support": [9, 10, 11], "disagree": [12, 13], "resid": [14], "models": [15, 16], "depth": [17]}
+FEAT_GROUPS = {"support": [0, 1, 2], "disagree": [3, 4], "resid": [5], "models": [6, 7], "depth": [8], "color": slice(9, None)}   # colours last (3 x #candidates)
 
 
-def make_input(c, fe, ir, drop=()):
+def make_input(c, fe, ir, drop=(), bf=None):
     """c: all 3 candidates (K=3 x 3 x H x W) — the input always sees the same channels; dropped groups are zeroed."""
     nv, mdd, wr, ws, res, mi, dep = fe
     one = torch.ones((), device=c.device)
     d = dep.clamp_min(1e-3); ld = torch.log(d) - torch.log(d[d > 1e-3].median() if (d > 1e-3).any() else one)
     ens = (c[0] - ir).abs().mean(0)                                                       # MCMC vs IBGS-base disagreement
-    x = torch.cat([c.reshape(-1, *c.shape[-2:]),                                         # candidate colours (9)
-                   torch.stack([nv / 5, (nv == 0).float(), mdd, wr * 5, ws * 5, res * 5, mi * 5, ens * 5, ld.clamp(-3, 3) / 3])])
+    x = torch.cat([torch.stack([nv / 5, (nv == 0).float(), mdd, wr * 5, ws * 5, res * 5, mi * 5, ens * 5, ld.clamp(-3, 3) / 3]),
+                   c.reshape(-1, *c.shape[-2:])])                                        # candidate colours (3 x K)
     for g in drop:
         x[FEAT_GROUPS[g]] = 0
+    if bf is not None:
+        x = torch.cat([x, bf])
     return x
 
 
@@ -99,6 +147,8 @@ def main():
     ap.add_argument("--out", default=None); ap.add_argument("--lpips", type=int, default=1)
     ap.add_argument("--mode", default="pixel", choices=["pixel", "band"]); ap.add_argument("--levels", type=int, default=5)
     ap.add_argument("--cands", nargs="+", default=list(CANDS)); ap.add_argument("--drop", nargs="*", default=[])
+    ap.add_argument("--aff_cand", action="store_true", help="add MCMC+affine-exposure (fit to nearest warp) as a 4th candidate")
+    ap.add_argument("--band_feats", action="store_true", help="add per-band evidence (|E-I| and warp-spread energy per Laplacian level)")
     ap.add_argument("--train_scenes", nargs="*", default=[], help="fixed training set (e.g. Shiny); every OTHER scene is evaluated zero-shot")
     ap.add_argument("--lodo", action="store_true", help="leave-one-DATASET-out (mip / tnt / db) instead of leave-one-scene-out")
     ap.add_argument("--within", action="store_true", help="DIAGNOSTIC ONLY: 2-fold over the views of each scene (uses that scene's test GT)")
@@ -109,6 +159,8 @@ def main():
         if a.mode == "pixel":
             o, w = blend(net(X), C, bias); return o, w.mean((2, 3))
         return blend_band(net(X), C, bias, L)
+    BAND_FEATS["on"] = a.band_feats; BAND_FEATS["L"] = a.levels; BAND_FEATS["aff"] = a.aff_cand
+    if a.aff_cand and "mcmc_aff" not in a.cands: a.cands = list(a.cands) + ["mcmc_aff"]
     data = {s: [load_view(f) for f in sorted(glob(os.path.join(ROOT, "outputs", "route", "hybrid", f"{s}_{a.tag}", "*.npz"))) if not f.endswith(".geo.npz")] for s in a.scenes}
     data = {s: v for s, v in data.items() if v}
     if a.within:   # diagnostic: folds = even / odd views of each scene
@@ -119,7 +171,8 @@ def main():
         import lpips
         lp = lpips.LPIPS(net="vgg").to(dev).eval()
     # candidate prior: start from "IBGS final" (the 2-stage default)
-    sel = [CANDS.index(k) for k in a.cands]
+    ALLC = list(CANDS) + (["mcmc_aff"] if a.aff_cand else [])
+    sel = [ALLC.index(k) for k in a.cands]
     bias = torch.tensor([2.0 if k == "ibgs_final" else 0.0 for k in a.cands], device=dev)
     results = {}
     held_list = [s for s in data if s not in a.train_scenes] if a.train_scenes else list(data)
@@ -133,19 +186,19 @@ def main():
             train = [v for s, vs in data.items() if grp(s) != grp(held) for v in vs]
         else:
             train = [v for s, vs in data.items() if (s.split("#")[0] == held.split("#")[0] and s != held) == a.within and s != held for v in vs]
-        net = Gate(9 + 9, len(sel) * (L if a.mode == "band" else 1)).to(dev); opt = torch.optim.Adam(net.parameters(), 2e-3)
+        net = Gate(9 + 3 * len(ALLC) + (2 * L if a.band_feats else 0), len(sel) * (L if a.mode == "band" else 1)).to(dev); opt = torch.optim.Adam(net.parameters(), 2e-3)
         sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, a.iters)
         if fixed_net is not None:
             net = fixed_net
         for it in range(a.iters if fixed_net is None else 0):
             X, C, G = [], [], []
             for _ in range(a.bs):
-                c, gt, fe, ir = train[rng.integers(len(train))]
+                c, gt, fe, ir, bf = train[rng.integers(len(train))]
                 H, W = gt.shape[-2:]; cs = min(a.crop, H, W)
                 y0, x0 = rng.integers(0, H - cs + 1), rng.integers(0, W - cs + 1)
                 sl = (..., slice(y0, y0 + cs), slice(x0, x0 + cs))
                 c_, fe_, ir_ = c[sl].float(), fe[sl].float(), ir[sl].float()
-                X.append(make_input(c_, fe_, ir_, a.drop)); C.append(c_[sel]); G.append(gt[sl].float())
+                X.append(make_input(c_, fe_, ir_, a.drop, bf[sl].float() if bf is not None else None)); C.append(c_[sel]); G.append(gt[sl].float())
             X, C, G = torch.stack(X).to(dev), torch.stack(C).to(dev), torch.stack(G).to(dev)
             out, _ = apply(net, X, C)
             loss = F.mse_loss(out, G)
@@ -153,11 +206,11 @@ def main():
         net.eval(); rows = []
         if a.train_scenes: fixed_net = net
         with torch.no_grad():
-            for c, gt, fe, ir in data[held]:
-                c, gt, fe, ir = c.float(), gt.float(), fe.float(), ir.float()
+            for c, gt, fe, ir, bf in data[held]:
+                c, gt, fe, ir = c.float(), gt.float(), fe.float(), ir.float(); bf = bf.float() if bf is not None else None
                 H, W = gt.shape[-2:]; ph, pw = (-H) % mult, (-W) % mult            # reflect-pad to a pyramid-friendly size
                 pad = lambda t: F.pad(t[None] if t.dim() == 3 else t, (0, pw, 0, ph), mode="replicate")
-                X = pad(make_input(c, fe, ir, a.drop)); Cp = F.pad(c[sel], (0, pw, 0, ph), mode="replicate")[None]
+                X = pad(make_input(c, fe, ir, a.drop, bf)); Cp = F.pad(c[sel], (0, pw, 0, ph), mode="replicate")[None]
                 o, w = apply(net, X, Cp); o = o[0, :, :H, :W]
                 ims = {k: c[i] for i, k in enumerate(CANDS)}; ims["gate"] = o
                 e = torch.stack([((c[i] - gt) ** 2).mean(0) for i in range(len(CANDS))])
