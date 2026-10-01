@@ -147,6 +147,7 @@ def main():
     ap.add_argument("--out", default=None); ap.add_argument("--lpips", type=int, default=1)
     ap.add_argument("--mode", default="pixel", choices=["pixel", "band"]); ap.add_argument("--levels", type=int, default=5)
     ap.add_argument("--cands", nargs="+", default=list(CANDS)); ap.add_argument("--drop", nargs="*", default=[])
+    ap.add_argument("--held", nargs="*", default=[], help="evaluate only these held-out scenes (training set unchanged)")
     ap.add_argument("--aff_cand", action="store_true", help="add MCMC+affine-exposure (fit to nearest warp) as a 4th candidate")
     ap.add_argument("--band_feats", action="store_true", help="add per-band evidence (|E-I| and warp-spread energy per Laplacian level)")
     ap.add_argument("--train_scenes", nargs="*", default=[], help="fixed training set (e.g. Shiny); every OTHER scene is evaluated zero-shot")
@@ -176,6 +177,7 @@ def main():
     bias = torch.tensor([2.0 if k == "ibgs_final" else 0.0 for k in a.cands], device=dev)
     results = {}
     held_list = [s for s in data if s not in a.train_scenes] if a.train_scenes else list(data)
+    if a.held: held_list = [s for s in held_list if s in a.held]
     fixed_net = None
     for held in held_list:
         torch.manual_seed(0); rng = np.random.default_rng(0)
@@ -186,23 +188,35 @@ def main():
             train = [v for s, vs in data.items() if grp(s) != grp(held) for v in vs]
         else:
             train = [v for s, vs in data.items() if (s.split("#")[0] == held.split("#")[0] and s != held) == a.within and s != held for v in vs]
-        net = Gate(9 + 3 * len(ALLC) + (2 * L if a.band_feats else 0), len(sel) * (L if a.mode == "band" else 1)).to(dev); opt = torch.optim.Adam(net.parameters(), 2e-3)
-        sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, a.iters)
+        def train_once(lr, seed):
+            torch.manual_seed(seed); rng = np.random.default_rng(seed)
+            net = Gate(9 + 3 * len(ALLC) + (2 * L if a.band_feats else 0), len(sel) * (L if a.mode == "band" else 1)).to(dev)
+            opt = torch.optim.Adam(net.parameters(), lr); sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, a.iters)
+            hist_g, hist_c = [], []
+            for it in range(a.iters):
+                X, C, G = [], [], []
+                for _ in range(a.bs):
+                    c, gt, fe, ir, bf = train[rng.integers(len(train))]
+                    H, W = gt.shape[-2:]; cs = min(a.crop, H, W)
+                    y0, x0 = rng.integers(0, H - cs + 1), rng.integers(0, W - cs + 1)
+                    sl = (..., slice(y0, y0 + cs), slice(x0, x0 + cs))
+                    c_, fe_, ir_ = c[sl].float(), fe[sl].float(), ir[sl].float()
+                    X.append(make_input(c_, fe_, ir_, a.drop, bf[sl].float() if bf is not None else None)); C.append(c_[sel]); G.append(gt[sl].float())
+                X, C, G = torch.stack(X).to(dev), torch.stack(C).to(dev), torch.stack(G).to(dev)
+                out, _ = apply(net, X, C)
+                loss = F.mse_loss(out, G)
+                opt.zero_grad(); loss.backward(); torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0); opt.step(); sched.step()
+                if it >= a.iters - 300:   # divergence guard: compare with the best single candidate on the same batches
+                    hist_g.append(float(loss)); hist_c.append(float(((C - G[:, None]) ** 2).mean((0, 2, 3, 4)).min()))
+            ok = np.isfinite(hist_g).all() and np.mean(hist_g) < np.mean(hist_c)
+            return net, ok, float(np.mean(hist_g)), float(np.mean(hist_c))
         if fixed_net is not None:
             net = fixed_net
-        for it in range(a.iters if fixed_net is None else 0):
-            X, C, G = [], [], []
-            for _ in range(a.bs):
-                c, gt, fe, ir, bf = train[rng.integers(len(train))]
-                H, W = gt.shape[-2:]; cs = min(a.crop, H, W)
-                y0, x0 = rng.integers(0, H - cs + 1), rng.integers(0, W - cs + 1)
-                sl = (..., slice(y0, y0 + cs), slice(x0, x0 + cs))
-                c_, fe_, ir_ = c[sl].float(), fe[sl].float(), ir[sl].float()
-                X.append(make_input(c_, fe_, ir_, a.drop, bf[sl].float() if bf is not None else None)); C.append(c_[sel]); G.append(gt[sl].float())
-            X, C, G = torch.stack(X).to(dev), torch.stack(C).to(dev), torch.stack(G).to(dev)
-            out, _ = apply(net, X, C)
-            loss = F.mse_loss(out, G)
-            opt.zero_grad(); loss.backward(); opt.step(); sched.step()
+        else:
+            for attempt, (lr, seed) in enumerate(((2e-3, 0), (1e-3, 1), (5e-4, 2))):
+                net, ok, lg_, lc_ = train_once(lr, seed)
+                if ok: break
+                print(f"    [{held}] attempt {attempt}: train loss {lg_:.2e} not below best single candidate {lc_:.2e} -> retry", flush=True)
         net.eval(); rows = []
         if a.train_scenes: fixed_net = net
         with torch.no_grad():

@@ -16,7 +16,7 @@
 | **Hướng 1 gốc: chọn ảnh nguồn nào** | **Ít dư địa** → dừng theo gate R0 của plan | Oracle chọn tập nguồn trên toàn ảnh chỉ +0.12 dB (bonsai, counter). Coverage-K **kém** nearest-K (§2). |
 | **Đòn bẩy thật: tin ảnh thật đến tần số nào, ở vùng nào** | Mức tin ảnh thật phụ thuộc **băng tần × support × scene**. Ở 5/8 scene ảnh thật đúng ở tần thấp, sai ở tần cao (lệch đăng ký sub-pixel). Ở garden/stump ảnh thật thua ở mọi băng; ở truck thua ở băng thô nhất (phơi sáng). **Đúng ở 8/8:** không có nguồn thì ảnh thật thua ở mọi băng. ⇒ cần gate học được, không phải tách băng cố định. | Phổ sai số theo băng tần trên 8 scene (§3.2). |
 | **Phương pháp** | Gate học được, trộn MCMC / IBGS / residual-trên-MCMC **theo băng Laplacian**, có điều kiện trên evidence (support, disagreement, biên depth test) | LOSO: gate không thấy GT của scene được chấm. |
-| **Kết quả gate (LOSO-4)** | Thắng IBGS và GADA ở cả 4 scene đã chạy: bonsai 35.51 (GADA 35.37), counter 31.02 (30.84), train 24.22 (23.67), bicycle 26.75 (26.16). ⏳ LOSO-8 đang chạy. | §4.1 |
+| **Kết quả gate (LOSO-8)** | **Thắng GADA ở cả 8/8 scene đã có**, +0.13 … +0.89 dB; thắng IBGS +0.38 … +1.02. Trung bình 6 scene Mip-360 30.49 vs GADA 29.92 (+0.57); T&T 25.61 vs 24.93 (+0.68). ⏳ 13 scene + Shiny zero-shot đang chạy. | §4.1 |
 | **Baseline không học (8 scene)** | "Băng mịn nhất từ MCMC, băng thô từ ảnh thật nơi có nguồn" **không thua cả MCMC lẫn IBGS ở scene nào trong 8**; hơn GADA (paper) ở 7/8 (thua ở bonsai: 35.23 vs 35.37). Gain nhỏ ở garden (+0.02 so với MCMC), lớn ở kitchen (+0.63). | §4.2 |
 
 **Intuition một câu:** ảnh warp ≈ ảnh đích bị dịch δ sub-pixel (do pose, calib, depth), nên sai số của nó ở tần số ω tăng
@@ -170,15 +170,36 @@ Phân rã theo lớp support (LOSO-4, PSNR gộp theo pixel):
 | | 1–2 (23%) | 28.48 | 29.13 | 29.43 | **29.56** |
 | | ≥3 (73%) | 29.83 | 31.32 | 31.37 | **31.50** |
 
+### 4.1a LOSO-8 (8 scene benchmark đã có; gate train trên 7 scene còn lại)
+
+| scene | MCMC | IBGS final | I+r | **gate band** | GADA (paper) | Δ GADA | Δ IBGS |
+|---|---|---|---|---|---|---|---|
+| bicycle | 26.18 | 26.08 | 26.30 | **26.79** / .826 / .171 | 26.16 | +0.63 | +0.71 |
+| garden | 28.20 | 27.59 | 28.10 | **28.49** / .886 / .112 | 27.74 | +0.75 | +0.90 |
+| stump | 27.69 | 27.29 | 27.57 | **28.17** / .837 / .181 | 27.33 | +0.84 | +0.88 |
+| bonsai | 32.84 | 34.92 | 35.38 | **35.50** / .962 / .190 | 35.37 | +0.13 | +0.58 |
+| counter | 29.48 | 30.63 | 30.87 | **31.01** / .933 / .194 | 30.84 | +0.17 | +0.38 |
+| kitchen | 32.31 | 31.96 | 32.73 | **32.98** / .938 / .129 | 32.09 | +0.89 | +1.02 |
+| train | 22.73 | 23.79 | 23.94 | **24.18** / .859 / .193 | 23.67 | +0.51 | +0.39 |
+| truck | 26.42 | 26.18 | 26.72 | **27.03** / .907 / .126 | 26.19 | +0.84 | +0.85 |
+| **TB 6 Mip** | 29.45 | 29.75 | 30.16 | **30.49** | 29.92 | **+0.57** | +0.74 |
+| **TB T&T** | 24.58 | 24.99 | 25.33 | **25.61** | 24.93 | **+0.68** | +0.62 |
+
+- Lần chạy đầu của fold garden bị **phân kỳ** (logit nổ, gate chọn 100% IBGS → 27.59). Đã thêm clip gradient + kiểm tra
+  "loss train phải thấp hơn ứng viên đơn tốt nhất, không thì train lại với lr nhỏ hơn"; fold garden chạy lại → 28.49.
+  Các fold khác không bị ảnh hưởng (gate ≠ một ứng viên đơn). Chuỗi 13 scene dùng bản đã có cơ chế này.
+- Ở outdoor, nơi riêng IBGS thua MCMC, gate vẫn cộng thêm +0.29…+0.61 so với MCMC.
+
 ### 4.1b Ablation sớm (LOSO-4)
 
 | biến thể | bonsai | counter | train | bicycle |
 |---|---|---|---|---|
 | gate band (mặc định) | 35.51 | 31.02 | 24.22 | 26.75 |
 | + evidence theo băng (\|E−I\| và độ phân tán warp mỗi tầng = hai vế Wiener) | 35.57 | 31.03 | 24.19 | 26.74 |
-| + ứng viên MCMC + affine phơi sáng | ⏳ | ⏳ | ⏳ | ⏳ |
+| + ứng viên MCMC + affine phơi sáng | 35.43 | 31.03 | 24.21 | 26.67 |
 
-Evidence theo băng không giúp thêm (±0.05, trong nhiễu): gate đã tự rút được thông tin đó từ các ứng viên.
+Evidence theo băng và ứng viên affine phơi sáng đều không giúp thêm (±0.08, trong nhiễu): gate đã tự rút được các thông tin
+đó từ các ứng viên hiện có.
 
 ### 4.2 Baseline không học (`src/route/baselines_band.py`, 8 scene)
 Tầng cắt k chọn theo LOSO (ra k = 1 ở mọi scene). "E" là nguồn tần thấp: IBGS final hoặc I+r.

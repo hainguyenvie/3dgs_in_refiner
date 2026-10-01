@@ -119,7 +119,9 @@ def main():
                 continue
             np.savez_compressed(os.path.join(args.out, f"{view.image_name}.npz"), gt=h(gt), mcmc=h(mcmc), ibgs_raw=h(raw), ibgs_final=h(final),
                                 mcmc_res=h(mres), feats=h(feats), src=np.array(dflt), gt_match=gt_match,
-                                warps=h(wi * valid[:, None]), valid=valid.bool().cpu().numpy())   # per-slot warps (band disagreement)
+                                warps=h(wi * valid[:, None]), valid=valid.bool().cpu().numpy(),   # per-slot warps (band disagreement)
+                                cam_feat=h(cf), cam_center=view.camera_center.cpu().numpy(),     # per-slot (target - source centre, ray cosine)
+                                src_centers=scene.camera_centers[torch.tensor(dflt, dtype=torch.long)].cpu().numpy() if len(dflt) else np.zeros((0, 3)))
             ps = lambda a: float(-10 * torch.log10(((a - gt) ** 2).mean()))
             print(f"[hyb] {vi + 1}/{len(tests)} {view.image_name} gtΔ {gt_match:.1e} | mcmc {ps(mcmc):.2f} ibgs_raw {ps(raw):.2f} "
                   f"ibgs {ps(final):.2f} mcmc+res {ps(mres):.2f} | oracle-px {float(-10 * torch.log10(torch.minimum(((mcmc - gt) ** 2).mean(0), ((final - gt) ** 2).mean(0)).mean())):.2f}", flush=True)
