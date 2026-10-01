@@ -12,6 +12,7 @@ case "$SCENE" in
   bonsai|counter|kitchen|room)           SRC=$D/mipnerf360/$SCENE;     GRP=indoor ;;
   train|truck)                           SRC=$D/tandt_db/tandt/$SCENE; GRP=tnt ;;
   drjohnson|playroom)                    SRC=$D/tandt_db/db/$SCENE;    GRP=db ;;
+  cd|guitars|lab)                        SRC=$D/shiny/_SHINNY_DATASET_/$SCENE; GRP=shiny ;;   # IBGS-processed Shiny (gate training only)
   *) echo "unknown scene $SCENE"; exit 2 ;;
 esac
 [ -n "${SRC_OVERRIDE:-}" ] && SRC="$SRC_OVERRIDE"          # e.g. a re-calibrated copy of the scene (data/calib/<scene>_pf)

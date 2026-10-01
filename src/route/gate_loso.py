@@ -29,13 +29,19 @@ def load_view(f):   # kept on the GPU in fp16; cast per crop
     return g(np.stack([z[k] for k in CANDS])), g(z["gt"]), g(z["feats"]), g(z["ibgs_raw"])
 
 
-def make_input(c, fe, ir):
+FEAT_GROUPS = {"color": list(range(0, 9)), "support": [9, 10, 11], "disagree": [12, 13], "resid": [14], "models": [15, 16], "depth": [17]}
+
+
+def make_input(c, fe, ir, drop=()):
+    """c: all 3 candidates (K=3 x 3 x H x W) — the input always sees the same channels; dropped groups are zeroed."""
     nv, mdd, wr, ws, res, mi, dep = fe
+    one = torch.ones((), device=c.device)
     d = dep.clamp_min(1e-3); ld = torch.log(d) - torch.log(d[d > 1e-3].median() if (d > 1e-3).any() else one)
-    ens = (c[0] - ir).abs().mean(0)
-    one = torch.ones((), device=c.device)                                                       # MCMC vs IBGS-base disagreement
+    ens = (c[0] - ir).abs().mean(0)                                                       # MCMC vs IBGS-base disagreement
     x = torch.cat([c.reshape(-1, *c.shape[-2:]),                                         # candidate colours (9)
                    torch.stack([nv / 5, (nv == 0).float(), mdd, wr * 5, ws * 5, res * 5, mi * 5, ens * 5, ld.clamp(-3, 3) / 3])])
+    for g in drop:
+        x[FEAT_GROUPS[g]] = 0
     return x
 
 
@@ -92,6 +98,9 @@ def main():
     ap.add_argument("--iters", type=int, default=3000); ap.add_argument("--crop", type=int, default=192); ap.add_argument("--bs", type=int, default=8)
     ap.add_argument("--out", default=None); ap.add_argument("--lpips", type=int, default=1)
     ap.add_argument("--mode", default="pixel", choices=["pixel", "band"]); ap.add_argument("--levels", type=int, default=5)
+    ap.add_argument("--cands", nargs="+", default=list(CANDS)); ap.add_argument("--drop", nargs="*", default=[])
+    ap.add_argument("--train_scenes", nargs="*", default=[], help="fixed training set (e.g. Shiny); every OTHER scene is evaluated zero-shot")
+    ap.add_argument("--lodo", action="store_true", help="leave-one-DATASET-out (mip / tnt / db) instead of leave-one-scene-out")
     ap.add_argument("--within", action="store_true", help="DIAGNOSTIC ONLY: 2-fold over the views of each scene (uses that scene's test GT)")
     a = ap.parse_args()
     a.out = a.out or os.path.join(ROOT, "outputs", "route", f"gate_loso_{a.mode}.json")
@@ -110,14 +119,25 @@ def main():
         import lpips
         lp = lpips.LPIPS(net="vgg").to(dev).eval()
     # candidate prior: start from "IBGS final" (the 2-stage default)
-    bias = torch.tensor([0.0, 2.0, 0.0], device=dev)
+    sel = [CANDS.index(k) for k in a.cands]
+    bias = torch.tensor([2.0 if k == "ibgs_final" else 0.0 for k in a.cands], device=dev)
     results = {}
-    for held in data:
+    held_list = [s for s in data if s not in a.train_scenes] if a.train_scenes else list(data)
+    fixed_net = None
+    for held in held_list:
         torch.manual_seed(0); rng = np.random.default_rng(0)
-        train = [v for s, vs in data.items() if (s.split("#")[0] == held.split("#")[0] and s != held) == a.within and s != held for v in vs]
-        net = Gate(9 + 9, len(CANDS) * (L if a.mode == "band" else 1)).to(dev); opt = torch.optim.Adam(net.parameters(), 2e-3)
+        grp = lambda x: {"train": "tnt", "truck": "tnt", "drjohnson": "db", "playroom": "db"}.get(x.split("#")[0], "mip")
+        if a.train_scenes:
+            train = [v for s in a.train_scenes for v in data[s]]
+        elif a.lodo:
+            train = [v for s, vs in data.items() if grp(s) != grp(held) for v in vs]
+        else:
+            train = [v for s, vs in data.items() if (s.split("#")[0] == held.split("#")[0] and s != held) == a.within and s != held for v in vs]
+        net = Gate(9 + 9, len(sel) * (L if a.mode == "band" else 1)).to(dev); opt = torch.optim.Adam(net.parameters(), 2e-3)
         sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, a.iters)
-        for it in range(a.iters):
+        if fixed_net is not None:
+            net = fixed_net
+        for it in range(a.iters if fixed_net is None else 0):
             X, C, G = [], [], []
             for _ in range(a.bs):
                 c, gt, fe, ir = train[rng.integers(len(train))]
@@ -125,18 +145,19 @@ def main():
                 y0, x0 = rng.integers(0, H - cs + 1), rng.integers(0, W - cs + 1)
                 sl = (..., slice(y0, y0 + cs), slice(x0, x0 + cs))
                 c_, fe_, ir_ = c[sl].float(), fe[sl].float(), ir[sl].float()
-                X.append(make_input(c_, fe_, ir_)); C.append(c_); G.append(gt[sl].float())
+                X.append(make_input(c_, fe_, ir_, a.drop)); C.append(c_[sel]); G.append(gt[sl].float())
             X, C, G = torch.stack(X).to(dev), torch.stack(C).to(dev), torch.stack(G).to(dev)
             out, _ = apply(net, X, C)
             loss = F.mse_loss(out, G)
             opt.zero_grad(); loss.backward(); opt.step(); sched.step()
         net.eval(); rows = []
+        if a.train_scenes: fixed_net = net
         with torch.no_grad():
             for c, gt, fe, ir in data[held]:
                 c, gt, fe, ir = c.float(), gt.float(), fe.float(), ir.float()
                 H, W = gt.shape[-2:]; ph, pw = (-H) % mult, (-W) % mult            # reflect-pad to a pyramid-friendly size
                 pad = lambda t: F.pad(t[None] if t.dim() == 3 else t, (0, pw, 0, ph), mode="replicate")
-                X = pad(make_input(c, fe, ir)); Cp = F.pad(c, (0, pw, 0, ph), mode="replicate")[None]
+                X = pad(make_input(c, fe, ir, a.drop)); Cp = F.pad(c[sel], (0, pw, 0, ph), mode="replicate")[None]
                 o, w = apply(net, X, Cp); o = o[0, :, :H, :W]
                 ims = {k: c[i] for i, k in enumerate(CANDS)}; ims["gate"] = o
                 e = torch.stack([((c[i] - gt) ** 2).mean(0) for i in range(len(CANDS))])
@@ -149,17 +170,27 @@ def main():
                 eg = ((((o.clamp(0, 1) * 255 + 0.5).floor() / 255) - gt) ** 2).mean(0)
                 for b, msk in bins.items():   # per-support-class squared error sums (pooled later) and pixel counts
                     r[f"bin_{b}"] = [float(msk.sum())] + [float(e[i][msk].sum()) for i in range(len(CANDS))] + [float(eg[msk].sum())]
+                if a.mode == "band":           # full-res per-level weights, averaged inside each support class (sums, pooled later)
+                    lg = net(X)[..., :H, :W].reshape(1, len(sel), L, H, W) + bias.view(1, -1, 1, 1, 1)
+                    wf = torch.softmax(lg, 1)[0]                                                    # K x L x H x W
+                    for b, msk in bins.items():
+                        r[f"wbin_{b}"] = (wf[:, :, msk].sum(-1)).tolist()                           # K x L sums
                 r["w_mean"] = w[0].tolist()
                 rows.append(r)
         S = {k: tuple(np.mean([r[k][j] for r in rows]) for j in range(3)) for k in list(CANDS) + ["gate"]}
         S["oracle_scene"] = max((S[k] for k in ("mcmc", "ibgs_final")), key=lambda t: t[0])
         S["oracle_px_mcmc_ibgs"] = (np.mean([r["oracle_px_mcmc_ibgs"] for r in rows]), 0, 0)
         S["w_mean"] = np.mean([r["w_mean"] for r in rows], 0).tolist()
+        if a.mode == "band":
+            for b in ("u0", "s12", "s3"):
+                S[f"wbin_{b}"] = (np.sum([r[f"wbin_{b}"] for r in rows], 0) / max(np.sum([r[f"bin_{b}"][0] for r in rows]), 1)).tolist()
+            print("    band weights per support class (rows = " + "/".join(a.cands) + ", cols = fine..coarse): " +
+                  " ; ".join(f"{b} " + str(np.round(S[f'wbin_{b}'], 2).tolist()) for b in ("u0", "s12", "s3")), flush=True)
         for b in ("u0", "s12", "s3"):   # pooled PSNR per support class: [frac, cands..., gate]
             t = np.sum([r[f"bin_{b}"] for r in rows], 0); n = max(t[0], 1)
             S[f"bin_{b}"] = [t[0] / sum(np.sum([r[f"bin_{x}"][0] for r in rows]) for x in ("u0", "s12", "s3"))] + [float(-10 * np.log10(max(v / n, 1e-12))) for v in t[1:]]
         results[held] = {k: list(v) for k, v in S.items()}
-        print(f"[{held}] " + " | ".join(f"{k} {v[0]:.2f}/{v[1]:.3f}/{v[2]:.3f}" for k, v in S.items() if k != "w_mean" and not k.startswith("bin_")) + f" | w {np.round(S['w_mean'], 2).tolist()}", flush=True)
+        print(f"[{held}] " + " | ".join(f"{k} {v[0]:.2f}/{v[1]:.3f}/{v[2]:.3f}" for k, v in S.items() if k != "w_mean" and not k.startswith(("bin_", "wbin_"))) + f" | w {np.round(S['w_mean'], 2).tolist()}", flush=True)
         print(f"    support bins [frac | {' '.join(CANDS)} gate]: " + " ; ".join(f"{b} {S['bin_' + b][0]:.3f} | " + " ".join(f"{x:.2f}" for x in S['bin_' + b][1:]) for b in ("u0", "s12", "s3")), flush=True)
     json.dump(results, open(a.out, "w"), indent=1)
 

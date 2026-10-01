@@ -8,6 +8,7 @@ case "$S" in
   bicycle|flowers|garden|stump|treehill)  SRC=$D/mipnerf360/$S;     FLAGS="-r 4 --eval"; DS=mip_nerf_360 ;;
   drjohnson|playroom)                     SRC=$D/tandt_db/db/$S;    FLAGS="-r 1 --eval --multi_view_max_angle 50 --multi_view_max_dis 4.5"; DS=deep_blending ;;
   train|truck)                            SRC=$D/tandt_db/tandt/$S; FLAGS="-r 2 --eval --exposure_compensation --enable_exposure_correction"; DS=tanks ;;
+  cd|guitars|lab)                         SRC=$D/shiny/_SHINNY_DATASET_/$S; FLAGS="-r 1008 --eval --multi_view_max_angle 50 --multi_view_max_dis 4.5"; DS=shiny ;;
 esac
 M="$ROOT/checkpoints/ibgs_pretrained/output/$DS/$S"; MC="$ROOT/outputs/protocolR/mcmc/${S}_${TAG}/test/ours_30000"
 OUT="$ROOT/outputs/route/hybrid/${S}_${TAG}${OUT_SUFFIX:-}"
