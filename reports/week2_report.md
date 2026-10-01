@@ -17,7 +17,7 @@
 | **Đòn bẩy thật: tin ảnh thật đến tần số nào, ở vùng nào** | Mức tin ảnh thật phụ thuộc **băng tần × support × scene**. Ở 5/8 scene ảnh thật đúng ở tần thấp, sai ở tần cao (lệch đăng ký sub-pixel). Ở garden/stump ảnh thật thua ở mọi băng; ở truck thua ở băng thô nhất (phơi sáng). **Đúng ở 8/8:** không có nguồn thì ảnh thật thua ở mọi băng. ⇒ cần gate học được, không phải tách băng cố định. | Phổ sai số theo băng tần trên 8 scene (§3.2). |
 | **Phương pháp** | Gate học được, trộn MCMC / IBGS / residual-trên-MCMC **theo băng Laplacian**, có điều kiện trên evidence (support, disagreement, biên depth test) | LOSO: gate không thấy GT của scene được chấm. |
 | **Kết quả gate (LOSO-4)** | Thắng IBGS và GADA ở cả 4 scene đã chạy: bonsai 35.51 (GADA 35.37), counter 31.02 (30.84), train 24.22 (23.67), bicycle 26.75 (26.16). ⏳ LOSO-8 đang chạy. | §4.1 |
-| **Baseline không học (8 scene)** | "Băng mịn nhất từ MCMC, băng thô từ ảnh thật nơi có nguồn" **không thua cả MCMC lẫn IBGS ở scene nào trong 8**; hơn GADA (paper) ở 8/8. Gain nhỏ ở garden (+0.02 so với MCMC), lớn ở kitchen (+0.63). | §4.2 |
+| **Baseline không học (8 scene)** | "Băng mịn nhất từ MCMC, băng thô từ ảnh thật nơi có nguồn" **không thua cả MCMC lẫn IBGS ở scene nào trong 8**; hơn GADA (paper) ở 7/8 (thua ở bonsai: 35.23 vs 35.37). Gain nhỏ ở garden (+0.02 so với MCMC), lớn ở kitchen (+0.63). | §4.2 |
 
 **Intuition một câu:** ảnh warp ≈ ảnh đích bị dịch δ sub-pixel (do pose, calib, depth), nên sai số của nó ở tần số ω tăng
 theo ω²σ². Ảnh thật vì thế đáng tin cho màu, phơi sáng và shading phụ thuộc góc nhìn (tần thấp), nhưng phá chi tiết (tần
@@ -201,7 +201,7 @@ Tầng cắt k chọn theo LOSO (ra k = 1 ở mọi scene). "E" là nguồn tầ
 
 Đọc bảng:
 - **Gain không chỉ đến từ phơi sáng.** Affine chỉ giúp train (+0.37) và hại bicycle (−0.91).
-- **Quy tắc không học (tách theo support) không thua cả MCMC lẫn IBGS ở scene nào trong 8** và hơn GADA (paper) ở 8/8.
+- **Quy tắc không học (tách theo support) không thua cả MCMC lẫn IBGS ở scene nào trong 8** và hơn GADA (paper) ở 7/8 (bonsai 35.23 < 35.37; counter chỉ hơn 0.03).
   Ở outdoor yếu (garden) gain chỉ +0.02–0.05 so với MCMC; ở kitchen +0.63; ở bicycle thắng cả hai thành phần.
 - Nguồn tần thấp tốt nhất đổi theo scene (IBGS ở bicycle/stump/train, I+r ở garden/kitchen/truck) — thêm một lý do để
   gate tự chọn.
