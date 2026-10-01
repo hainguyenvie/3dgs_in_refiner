@@ -194,6 +194,20 @@ checkpoint tác giả, cùng pipeline.
 Zero-shot từ một dataset khác chỉ kém LOSO 0.11 dB trên Mip-360 và vẫn hơn GADA +0.52 (Mip-360), +0.57 (T&T), thắng 11/11
 scene có số GADA. ⇒ Cơ chế phân xử theo băng tần **khái quát qua dataset**; kết quả không đến từ việc học trên benchmark.
 
+### 4.0d Cross-fitting đầy đủ trên chính scene (giao thức sạch nhất theo từng scene) ⏳ 1/5 scene
+
+Mỗi scene: train thêm MCMC_dev và IBGS_dev trên bản sao dữ liệu đã bỏ view test và giấu 1/8 view train ("dev"). Ở các
+view dev, mọi ứng viên (MCMC, IBGS final, I+r) có lỗi đúng như lúc test. Gate học **chỉ trên view dev của chính scene**,
+rồi áp cho các mô hình đầy đủ ở view test. Không dùng scene khác, không đụng GT test. Chi phí phát sinh chỉ lúc train
+(1 MCMC + 1 IBGS thêm); inference không đổi.
+
+| scene | MCMC | IBGS | I+r | gate LOSO | gate Shiny zero-shot | **gate cross-fit (self-dev)** | GADA |
+|---|---|---|---|---|---|---|---|
+| bonsai | 32.84 | 34.92 | 35.38 | 35.41 | 35.50 | **35.56** / .961 / .187 | 35.37 |
+| counter, train, bicycle, garden | ⏳ IBGS_dev đang train (2 làn song song) | | | | | | |
+
+Dev MCMC bonsai ở view dev: 32.54 dB (mô hình đầy đủ ở view test: 32.84) — lỗi ở view dev đúng tầm lỗi lúc test.
+
 ### 4.0c LODO — gate không thấy cả dataset được chấm (train trên 2 dataset còn lại)
 
 | scene (Mip-360, gate train chỉ trên T&T + DB) | bicycle | flowers | garden | stump | treehill | bonsai | ⏳ |

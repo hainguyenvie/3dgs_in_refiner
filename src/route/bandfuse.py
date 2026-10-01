@@ -204,6 +204,7 @@ def main():
             if a.protocol in ("dev", "devft"): res["shared"] = net
         if a.protocol == "devft":   # copy the shared model, fine-tune on the held scene's own dev views
             import copy
+            res["shared"]._res = None                                                 # drop the cached graph tensor before copying
             net = copy.deepcopy(res["shared"]); net.train(); opt = torch.optim.Adam(net.parameters(), 5e-4); rng = np.random.default_rng(7)
             for it in range(a.ft_iters):
                 b = batch(dev[held], rng, a.bs, a.crop, a.aug)
