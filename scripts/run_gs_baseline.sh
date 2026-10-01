@@ -26,6 +26,7 @@ case "$METHOD" in
     REPO=$ROOT/third_party/3dgs-mcmc; PY=$ROOT/.venv_mcmc/bin/python
     CFG=$REPO/configs/$SCENE.json
     [ -f "$CFG" ] || CFG=$ROOT/configs/mcmc/$SCENE.json     # our config for scenes the repo lacks (flowers, treehill)
+    [ -n "${CFG_OVERRIDE:-}" ] && CFG="$CFG_OVERRIDE"       # e.g. playroom: repo config lacks opacity_reg (week-1 finding)
     [ -f "$CFG" ] || { echo "no config (cap_max) for $SCENE"; exit 3; }
     RES=$($PY -c "import json;print(json.load(open('$CFG'))['resolution'])")
     TRAIN_FLAGS="--config $CFG --eval --init_type sfm --quiet"

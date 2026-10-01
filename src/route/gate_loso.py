@@ -147,6 +147,8 @@ def main():
     ap.add_argument("--out", default=None); ap.add_argument("--lpips", type=int, default=1)
     ap.add_argument("--mode", default="pixel", choices=["pixel", "band"]); ap.add_argument("--levels", type=int, default=5)
     ap.add_argument("--cands", nargs="+", default=list(CANDS)); ap.add_argument("--drop", nargs="*", default=[])
+    ap.add_argument("--scene_tags", nargs="*", default=[], help="per-scene dump tag overrides, e.g. playroom=fix")
+    ap.add_argument("--self_dev", default="", help="train on <scene>_<this tag> (cross-fitted dev views of the SAME scene), test on --tag")
     ap.add_argument("--held", nargs="*", default=[], help="evaluate only these held-out scenes (training set unchanged)")
     ap.add_argument("--aff_cand", action="store_true", help="add MCMC+affine-exposure (fit to nearest warp) as a 4th candidate")
     ap.add_argument("--band_feats", action="store_true", help="add per-band evidence (|E-I| and warp-spread energy per Laplacian level)")
@@ -162,7 +164,8 @@ def main():
         return blend_band(net(X), C, bias, L)
     BAND_FEATS["on"] = a.band_feats; BAND_FEATS["L"] = a.levels; BAND_FEATS["aff"] = a.aff_cand
     if a.aff_cand and "mcmc_aff" not in a.cands: a.cands = list(a.cands) + ["mcmc_aff"]
-    data = {s: [load_view(f) for f in sorted(glob(os.path.join(ROOT, "outputs", "route", "hybrid", f"{s}_{a.tag}", "*.npz"))) if not f.endswith(".geo.npz")] for s in a.scenes}
+    stag = dict(x.split("=") for x in a.scene_tags)
+    data = {s: [load_view(f) for f in sorted(glob(os.path.join(ROOT, "outputs", "route", "hybrid", f"{s}_{stag.get(s, a.tag)}", "*.npz"))) if not f.endswith(".geo.npz")] for s in a.scenes}
     data = {s: v for s, v in data.items() if v}
     if a.within:   # diagnostic: folds = even / odd views of each scene
         data = {f"{s}#{p}": [v for i, v in enumerate(vs) if i % 2 == p] for s, vs in data.items() for p in (0, 1)}
@@ -182,7 +185,9 @@ def main():
     for held in held_list:
         torch.manual_seed(0); rng = np.random.default_rng(0)
         grp = lambda x: {"train": "tnt", "truck": "tnt", "drjohnson": "db", "playroom": "db"}.get(x.split("#")[0], "mip")
-        if a.train_scenes:
+        if a.self_dev:
+            train = [load_view(f) for f in sorted(glob(os.path.join(ROOT, "outputs", "route", "hybrid", f"{held}_{a.self_dev}", "*.npz"))) if not f.endswith(".geo.npz")]
+        elif a.train_scenes:
             train = [v for s in a.train_scenes for v in data[s]]
         elif a.lodo:
             train = [v for s, vs in data.items() if grp(s) != grp(held) for v in vs]

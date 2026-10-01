@@ -1,6 +1,6 @@
 # Week 2 — Tin ảnh thật đến tần số nào? Phân xử Gaussians ↔ IBR theo vùng và theo băng tần
 
-> File báo cáo **duy nhất** của tuần 2, bám `plan/week2_plan.md`. Cập nhật: 01/10/2026 16:30 UTC, đang chạy tiếp.
+> File báo cáo **duy nhất** của tuần 2, bám `plan/week2_plan.md`. Cập nhật: 01/10/2026 21:00 UTC, đang chạy tiếp.
 > ⏳ = đang chạy. Máy: 1×H200 mới. Dữ liệu tải lại từ nguồn chính thức (khớp byte). Checkpoint IBGS lấy từ link
 > Drive của tác giả. MCMC train lại, khớp tuần 1 (train 22.73 vs 22.61, bonsai 32.84 vs 32.78, bicycle 26.18 vs 26.13).
 > Số IBGS tái tạo bằng `metrics.py` của tác giả trùng với số trong pipeline của mình (bonsai 34.92, counter 30.63,
@@ -16,7 +16,7 @@
 | **Hướng 1 gốc: chọn ảnh nguồn nào** | **Ít dư địa** → dừng theo gate R0 của plan | Oracle chọn tập nguồn trên toàn ảnh chỉ +0.12 dB (bonsai, counter). Coverage-K **kém** nearest-K (§2). |
 | **Đòn bẩy thật: tin ảnh thật đến tần số nào, ở vùng nào** | Mức tin ảnh thật phụ thuộc **băng tần × support × scene**. Ở 5/8 scene ảnh thật đúng ở tần thấp, sai ở tần cao (lệch đăng ký sub-pixel). Ở garden/stump ảnh thật thua ở mọi băng; ở truck thua ở băng thô nhất (phơi sáng). **Đúng ở 8/8:** không có nguồn thì ảnh thật thua ở mọi băng. ⇒ cần gate học được, không phải tách băng cố định. | Phổ sai số theo băng tần trên 8 scene (§3.2). |
 | **Phương pháp** | Gate học được, trộn MCMC / IBGS / residual-trên-MCMC **theo băng Laplacian**, có điều kiện trên evidence (support, disagreement, biên depth test) | LOSO: gate không thấy GT của scene được chấm. |
-| **Kết quả gate (LOSO-8)** | **Thắng GADA ở cả 8/8 scene đã có**, +0.13 … +0.89 dB; thắng IBGS +0.38 … +1.02. Trung bình 6 scene Mip-360 30.49 vs GADA 29.92 (+0.57); T&T 25.61 vs 24.93 (+0.68). ⏳ 13 scene + Shiny zero-shot đang chạy. | §4.1 |
+| **Kết quả gate (LOSO, đủ 13 scene)** | **Mip-360 29.26** (GADA 28.63, +0.63; IBGS 28.47/28.53, +0.79/+0.73) — thắng GADA 9/9 scene. **T&T 25.54** (GADA 24.93, +0.61). **DB 30.14** (GADA 30.22, −0.08) — base MCMC playroom yếu do config repo thiếu `opacity_reg` (đang chạy lại với config tuần 1). SSIM/LPIPS tốt hơn ở cả ba dataset. | §4.0 |
 | **Baseline không học (8 scene)** | "Băng mịn nhất từ MCMC, băng thô từ ảnh thật nơi có nguồn" **không thua cả MCMC lẫn IBGS ở scene nào trong 8**; hơn GADA (paper) ở 7/8 (thua ở bonsai: 35.23 vs 35.37). Gain nhỏ ở garden (+0.02 so với MCMC), lớn ở kitchen (+0.63). | §4.2 |
 
 **Intuition một câu:** ảnh warp ≈ ảnh đích bị dịch δ sub-pixel (do pose, calib, depth), nên sai số của nó ở tần số ω tăng
@@ -141,6 +141,37 @@ Không có ràng buộc nào ép gate theo hướng này. Nó tự học đượ
 ---
 
 ## 4. Kết quả
+
+### 4.0 Bảng chính — gate theo băng tần, LOSO đủ 13 scene (PSNR / SSIM / LPIPS)
+
+Gate train trên view test của 12 scene còn lại, chấm trên scene giữ lại (không GT nào của scene được chấm được dùng).
+"IBGS (ckpt)" = checkpoint tác giả re-render bằng `metrics.py` của tác giả (trùng khít giữa 2 server); "IBGS (paper)" và
+"GADA (paper)" = số công bố.
+
+| scene | MCMC | IBGS (ckpt) | I+r | **gate** | IBGS (paper) | GADA (paper) | Δ GADA |
+|---|---|---|---|---|---|---|---|
+| bicycle | 26.18 | 26.08 | 26.30 | **26.79** / .826 / .172 | 26.06 | 26.16 | +0.63 |
+| flowers | 22.43 | 22.29 | 22.55 | **23.16** / .683 / .285 | 22.34 | 22.29 | +0.87 |
+| garden | 28.20 | 27.59 | 28.10 | **28.48** / .886 / .111 | 27.57 | 27.74 | +0.74 |
+| stump | 27.69 | 27.29 | 27.57 | **28.19** / .837 / .181 | 27.31 | 27.33 | +0.86 |
+| treehill | 23.36 | 22.93 | 23.13 | **24.08** / .697 / .289 | 23.06 | 23.16 | +0.92 |
+| bonsai | 32.84 | 34.92 | 35.38 | **35.41** / .961 / .191 | 34.98 | 35.37 | +0.04 |
+| counter | 29.48 | 30.63 | 30.87 | **30.99** / .934 / .196 | 30.65 | 30.84 | +0.15 |
+| kitchen | 32.31 | 31.96 | 32.73 | **33.00** / .939 / .129 | 32.10 | 32.09 | +0.91 |
+| room | 32.38 | 32.50 | 33.12 | **33.19** / .941 / .228 | 32.68 | 32.67 | +0.52 |
+| train | 22.73 | 23.79 | 23.94 | **24.19** / .859 / .194 | 23.69 | 23.67 | +0.52 |
+| truck | 26.42 | 26.18 | 26.72 | **26.89** / .907 / .126 | 26.10 | 26.19 | +0.70 |
+| drjohnson | 29.32 | 29.74 | 29.46 | **30.14** / .914 / .285 | 29.51 | — | — |
+| playroom | 29.48 | 30.15 | 29.54 | 30.13 / .910 / .301 | 30.34 | — | — |
+| **Mip-360** | 28.32 / .844 / .212 | 28.47 / .839 / .215 | 28.86 | **29.26** / .856 / .198 | 28.53 | 28.63 | **+0.63** |
+| **T&T** | 24.57 / .867 / .180 | 24.98 / .869 / .172 | 25.33 | **25.54** / .883 / .160 | 24.89 | 24.93 | **+0.61** |
+| **DB** | 29.40 / .901 / .312 | 29.94 / .910 / .303 | 29.50 | **30.14** / .912 / .293 | 29.92 | 30.22 | −0.08 |
+
+- Mip-360: thắng GADA ở **9/9 scene**; outdoor +0.63…+0.92, indoor +0.04…+0.91.
+- DB: base MCMC playroom ở lần này là 29.48, trong khi tuần 1 (config có `opacity_reg 0.001`, giống config drjohnson của
+  tác giả) là 30.03 — config playroom trong repo MCMC thiếu tham số này (đã ghi nhận ở tuần 1). ⏳ Đang train lại playroom
+  với config tuần 1 và chấm lại 2 scene DB; sẽ báo cả hai bản.
+- MCMC drjohnson 29.32 (tuần 1: 29.50) — dao động seed lớn hơn thường lệ ở scene này.
 
 ### 4.1 Gate theo băng tần, LOSO (PSNR / SSIM / LPIPS)
 

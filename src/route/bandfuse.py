@@ -162,7 +162,8 @@ def psnr(a, gt):
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--scenes", nargs="+", required=True)
-    ap.add_argument("--protocol", default="dev", choices=["loso", "dev", "self"]); ap.add_argument("--iters", type=int, default=4000)
+    ap.add_argument("--protocol", default="dev", choices=["loso", "dev", "self", "devft"])
+    ap.add_argument("--ft_iters", type=int, default=1500, help="devft: per-scene fine-tuning iterations on its own dev views"); ap.add_argument("--iters", type=int, default=4000)
     ap.add_argument("--attn", action="store_true"); ap.add_argument("--aug", action="store_true"); ap.add_argument("--L", type=int, default=5)
     ap.add_argument("--align", action="store_true", help="per-source learned sub-pixel re-alignment before fusion")
     ap.add_argument("--resid", action="store_true", help="per-band bounded additive correction head (own IBR network)")
@@ -170,17 +171,17 @@ def main():
     a = ap.parse_args(); L = a.L
     H = os.path.join(ROOT, "outputs", "route", "hybrid")
     test = {s: load_dir(os.path.join(H, f"{s}_cf")) for s in a.scenes}
-    dev = {s: load_dir(os.path.join(H, f"{s}_dev")) for s in a.scenes} if a.protocol in ("dev", "self") else {}
+    dev = {s: load_dir(os.path.join(H, f"{s}_dev")) for s in a.scenes} if a.protocol in ("dev", "self", "devft") else {}
     print({s: (len(test[s]), len(dev.get(s, []))) for s in a.scenes}, flush=True)
     res = {}
     for held in a.scenes:
         if a.protocol == "loso":
             train = [v for s in a.scenes if s != held for v in test[s]]
-        elif a.protocol == "dev":
+        elif a.protocol in ("dev", "devft"):
             train = [v for s in a.scenes for v in dev[s]]
         else:
             train = dev[held]
-        if a.protocol == "dev" and held != a.scenes[0] and "shared" in res:   # one shared model for the dev protocol
+        if a.protocol in ("dev", "devft") and "shared" in res:   # one shared model pretrained on all dev views
             net = res["shared"]
         else:
             for attempt, (lr, seed) in enumerate(((2e-3, 0), (1e-3, 1), (5e-4, 2))):
@@ -200,7 +201,17 @@ def main():
                 if np.isfinite(hg).all() and np.mean(hg) < np.mean(hi):
                     break
                 print(f"    [{held}] attempt {attempt}: train loss {np.mean(hg):.2e} not below explicit render {np.mean(hi):.2e} -> retry", flush=True)
-            if a.protocol == "dev": res["shared"] = net
+            if a.protocol in ("dev", "devft"): res["shared"] = net
+        if a.protocol == "devft":   # copy the shared model, fine-tune on the held scene's own dev views
+            import copy
+            net = copy.deepcopy(res["shared"]); net.train(); opt = torch.optim.Adam(net.parameters(), 5e-4); rng = np.random.default_rng(7)
+            for it in range(a.ft_iters):
+                b = batch(dev[held], rng, a.bs, a.crop, a.aug)
+                if a.align:
+                    Wa, _ = net.realign(b["I"], b["W"]); b["W"] = torch.where(b["V"][:, :, None], Wa, b["I"][:, None].expand_as(Wa))
+                lg_ = net(b["I"], b["W"], b["V"], b["C"], b["nv"], b["mdd"], b["dep"])
+                loss = F.mse_loss(fuse(lg_, b["I"], b["W"], L, net._res if a.resid else None), b["gt"])
+                opt.zero_grad(); loss.backward(); torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0); opt.step()
         net.eval(); rows = []
         with torch.no_grad():
             for v in test[held]:
