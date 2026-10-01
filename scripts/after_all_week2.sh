@@ -24,6 +24,9 @@ run abl_drop_models   --scenes $HAVE --mode band --iters 3000 --drop models
 run abl_drop_color    --scenes $HAVE --mode band --iters 3000 --drop color
 run abl_cands_mcmc_ibgs  --scenes $HAVE --mode band --iters 3000 --cands mcmc ibgs_final
 run abl_cands_mcmc_res   --scenes $HAVE --mode band --iters 3000 --cands mcmc mcmc_res
+log "non-learned baselines (fixed / support band split, affine exposure)"
+$PY src/route/baselines_band.py --scenes $HAVE > logs/baselines_band13.log 2>&1; cat logs/baselines_band13.log >> logs/week2_summary.txt
+$PY src/route/band_spectrum.py $HAVE > logs/band_spectrum13.log 2>&1 || .venv_tools/bin/python src/route/band_spectrum.py $HAVE > logs/band_spectrum13.log 2>&1
 log "gate chain done; resuming outdoor R0"
 bash scripts/run_r0_pilot.sh > logs/r0_pilot_resume.log 2>&1
 for s in bicycle garden stump; do [ -f $O/r0/$s.npz ] && .venv_tools/bin/python src/route/r0_analyze.py $O/r0/$s.npz >> logs/week2_summary.txt; done
