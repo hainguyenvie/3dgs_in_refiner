@@ -1,6 +1,8 @@
 # Week 2 — Tin ảnh thật đến tần số nào? Phân xử Gaussians ↔ IBR theo vùng và theo băng tần
 
-> File báo cáo **duy nhất** của tuần 2, bám `plan/week2_plan.md`. Cập nhật: 02/10/2026 01:30 UTC, đang chạy tiếp.
+> File báo cáo **duy nhất** của tuần 2, bám `plan/week2_plan.md`. Cập nhật: 02/10/2026 01:40 UTC, đang chạy tiếp.
+>
+> ⚠️ **Đọc §0′ trước:** phần lớn gain so với SOTA của gate là hiệu ứng ensemble hai mô hình, chưa phải cơ chế evidence.
 > ⏳ = đang chạy. Máy: 1×H200 mới. Dữ liệu tải lại từ nguồn chính thức (khớp byte). Checkpoint IBGS lấy từ link
 > Drive của tác giả. MCMC train lại, khớp tuần 1 (train 22.73 vs 22.61, bonsai 32.84 vs 32.78, bicycle 26.18 vs 26.13).
 > Số IBGS tái tạo bằng `metrics.py` của tác giả trùng với số trong pipeline của mình (bonsai 34.92, counter 30.63,
@@ -8,6 +10,51 @@
 > (32.21), truck 26.42 (26.31).
 
 ---
+
+## 0′. Cảnh báo quan trọng (02/10) — gain chủ yếu là ensemble
+
+Kiểm tra bắt buộc: chỉ **lấy trung bình ảnh MCMC và IBGS** (không gate, không evidence) đã cho gần hết gain:
+
+| scene | MCMC | IBGS | I+r | avg(MCMC, IBGS) | avg 3 ứng viên | gate (LOSO) |
+|---|---|---|---|---|---|---|
+| bicycle | 26.18 | 26.08 | 26.30 | 26.76 | 26.77 | 26.80 |
+| flowers | 22.43 | 22.29 | 22.55 | 23.13 | 23.12 | 23.16 |
+| garden | 28.20 | 27.59 | 28.10 | 28.50 | 28.51 | 28.51 |
+| stump | 27.69 | 27.29 | 27.57 | 28.21 | 28.17 | 28.20 |
+| treehill | 23.36 | 22.93 | 23.13 | 24.04 | 24.04 | 24.09 |
+| bonsai | 32.84 | 34.92 | 35.38 | 34.71 | 35.18 | **35.46** |
+| counter | 29.48 | 30.63 | 30.87 | 30.69 | 30.90 | 31.00 |
+| kitchen | 32.31 | 31.96 | 32.73 | 32.85 | 32.99 | 32.99 |
+| room | 32.38 | 32.50 | 33.12 | 33.09 | 33.24 | 33.27 |
+| train | 22.73 | 23.79 | 23.94 | 23.96 | 24.10 | 24.20 |
+| truck | 26.42 | 26.18 | 26.72 | 27.02 | 27.08 | 26.99 |
+| drjohnson | 29.32 | 29.74 | 29.46 | 30.18 | 30.08 | 30.14 |
+| playroom | 30.07 | 30.15 | 30.11 | 30.63 | 30.58 | 30.63 |
+| **Mip-360** | 28.32 | 28.47 | 28.86 | 29.11 | 29.21 | 29.28 |
+
+- Ở outdoor và DB, gate ≈ trung bình hai mô hình: gain đến từ **giảm phương sai giữa hai mô hình Gaussian độc lập**, không
+  phải từ phân xử theo evidence. Gate chỉ đóng góp thật ở indoor (bonsai +0.28, counter +0.10 so với trung bình 3).
+- So hệ 2 mô hình với IBGS/GADA (1 mô hình) là không công bằng. ⏳ Đối chứng bắt buộc: ensemble 2 seed MCMC (đang train
+  seed 1 cho bicycle, garden, stump, bonsai, counter, train). Nếu nó cũng cho ~+0.5 dB thì đóng góp riêng của IBR ở outdoor
+  ≈ 0 và claim SOTA hiện tại không đứng được.
+
+### Failure analysis — vì sao evidence ảnh không giúp ở outdoor (`src/route/failure_outdoor.py`)
+
+| | indoor (bonsai/counter/kitchen/room) | outdoor (bicycle/flowers/garden/stump/treehill) | T&T / DB |
+|---|---|---|---|
+| support, geometry IBGS | 0.95–0.98 | 0.76–0.96 | 0.71–0.93 |
+| support, depth MCMC (của mình) | 0.78–0.84 | **0.41–0.72** | 0.45–0.58 |
+| MSE tần thấp (~8 px) warp ÷ MCMC, *ở nơi geometry IBGS hợp lệ* | 0.63–1.21 | **1.22–2.17** | 0.77–1.86 |
+| lệch màu theo ảnh (gain của affine, dB) | 0.1–0.4 | 0.2–1.0 | 0.2–0.9 |
+| bất đồng tần thấp giữa 2 ảnh nguồn (×1e4) | 3.7–10.9 | 8.5–19.9 | 7–84 |
+| tỉ số ở vùng gần / giữa / xa | ≈ 1 | **gần tệ nhất** (bicycle 4.2/3.1/2.3) | truck 3.7/2.2/1.7 |
+
+- **H1 (geometry/support) đúng:** depth MCMC mất support ở outdoor.
+- **H2 đúng và quan trọng hơn:** kể cả với geometry tốt (IBGS), warp ở outdoor vẫn kém MCMC 1.2–2.2× ngay ở tần thấp ⇒
+  sửa depth không đủ.
+- **Vùng gần camera hỏng nặng nhất**, đúng δ ≈ f·b·Δz/z² (depth sai ở z nhỏ gây lệch lớn).
+- Hai ảnh outdoor bất đồng với nhau nhiều hơn ⇒ có nội dung không tĩnh (lá/cỏ theo gió, bóng nắng) mà không depth nào sửa.
+- Và MCMC outdoor vốn đã đúng ở tần thấp (S_I nhỏ) ⇒ ảnh thật không còn gì để thêm (đúng công thức Wiener).
 
 ## 0. Tóm tắt
 
