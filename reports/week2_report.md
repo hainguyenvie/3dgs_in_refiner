@@ -44,7 +44,7 @@ calibration (tuần 1) để dành cho bài khác; dừng hướng sinh ảnh/ch
 | Dataset | Mip-NeRF 360 (9), T&T (train, truck), DB (drjohnson, playroom); split LLFF 1/8 |
 | Độ phân giải | Mip outdoor r4, indoor r2; T&T/DB theo độ phân giải eval của IBGS (T&T là 980×545 dù cờ `-r 2`; GT khớp 1e-15) |
 | IBR | IBGS (NeurIPS'25), checkpoint tác giả. Warper trong kernel: mỗi pixel ≤5 nguồn hợp lệ đầu tiên, depth test tương đối 0.01; mạng mean-pool + CNN residual |
-| SOTA đối chiếu | IBGS checkpoint re-render: Mip 28.47 / T&T 24.98 / DB 29.94 (paper 28.53 / 24.89 / 29.92); GADA (paper): 28.63 / 24.93 / 30.22 |
+| SOTA đối chiếu | IBGS checkpoint re-render (tự đo): Mip 28.47 / T&T 24.98 / DB 29.94; GADA (paper): 28.62/28.63 / 24.93 / 30.22. ⚠️ Cột "IBGS (paper)" dùng trong tuần (28.53 / 24.89 / 29.92) **không khớp** paper IBGS theo rà soát 02/10 (28.33 / 24.84 / 30.12) — cần kiểm lại nguồn; số re-render là số tin cậy |
 | Metric | PSNR / SSIM / LPIPS(vgg) trên ảnh 8-bit, trung bình theo view |
 
 **Công bằng — tự đánh giá:**
@@ -274,3 +274,48 @@ lợi ích còn lại là inference một stage (tốc độ), không đủ làm
   12 scene trước khi so sánh; và cần một nguồn thông tin tốt hơn cả render lẫn Difix ở vùng không quan sát.
 - Các phát hiện §3 (ảnh thật chỉ có ích ở tần thấp, vùng không nguồn luôn hại, IBR sụp khi rời quỹ đạo) có thể là phần
   phân tích/motivation của một bài khác, nhưng tự chúng chưa phải phương pháp.
+
+---
+
+## 10. Phân tích Gaussian và rà soát literature (02/10) — có nên đào tiếp ngách này?
+
+### 10.1 Chẩn đoán ở mức Gaussian (`src/route/gauss_diag.py`, MCMC, 8 view test mỗi scene)
+
+| | bonsai (indoor) | garden (outdoor) |
+|---|---|---|
+| PSNR đầy đủ / chỉ màu DC (bỏ SH) / oracle theo pixel | 32.66 / 26.59 / 33.79 | 26.27 / 22.40 / 27.48 |
+| pixel do Gaussian thấy bởi <10 view train: tỉ lệ pixel → tỉ lệ lỗi | 3.7% → 5.3% | **10% → 56%** |
+| nhóm <3 view: MSE (×1e4) đầy đủ / DC | 45.6 / 156.0 | **486 / 440 (DC tốt hơn)** |
+| độ mới góc nhìn của view test | 88% pixel < 3° | 65% pixel < 6°; MSE ×7 khi > 27° |
+| lỗi theo scale | Gaussian nhỏ (chi tiết mịn): 17% pixel → 45% lỗi | Gaussian lớn (nền xa): 22% pixel → 59% lỗi |
+
+Thử giảm SH ở Gaussian ít được quan sát lúc render (`sh_damp_test.py`): garden và bicycle **không cải thiện** ở mọi mức
+(tới −0.35 dB) ⇒ lỗi ở vùng thiếu quan sát là do thiếu dữ liệu (geometry/màu sai), không phải do ngoại suy màu theo góc.
+
+### 10.2 Rà soát literature
+
+| phương pháp (một mô hình, không ảnh lúc test) | Mip-360 | T&T | DB |
+|---|---|---|---|
+| 3DGS | 27.21 | 23.14 | 29.41 |
+| 3DGS-MCMC (9 scene) | 28.29 | 24.29 | 29.67 |
+| Improving Densification | 28.19 | 24.59 | 30.19 |
+| DBS (có thể chọn checkpoint trên test) | 28.75 | 24.85 | 30.12 |
+| **Spherical Voronoi + Beta-Splatting** (preprint 2512.14180) | **28.71** | **25.00** | **30.63** |
+| IBGS (paper) / GADA (paper) | 28.33 / 28.62 | 24.84 / 24.92 | 30.12 / 30.22 |
+
+- **Splatting thuần đã vượt GADA ở cả 3 dataset** ⇒ thắng IBGS/GADA không còn là SOTA thật; nhánh IBR đang đi sau.
+- Gain lớn nhất gần đây: mô hình màu theo góc nhìn tốt hơn (Spherical Voronoi +0.59/+0.46/+1.07 so với Spherical Beta),
+  densify kiểu MCMC/kernel mới; calibration (CamP +0.6 trên Zip-NeRF, chủ yếu từ intrinsics — nhưng CamP tối ưu camera test
+  bằng photometric).
+- Prior sinh ảnh chỉ giúp ở view xa (Difix3D+ trên Nerfbusters 17.66 → 18.51); prior depth/normal không cho gain PSNR rõ ở
+  capture dày.
+
+### 10.3 Đánh giá và đề xuất
+Ngách "trộn ảnh thật vào 3DGS ở split chuẩn" gần như hết dư địa (oracle +0.5–1 dB; setup công bằng ≈ 0; splatting thuần đã
+vượt IBR). Các hướng lớn hơn, theo mức tin:
+1. **Calibration camera là nút thắt ẩn của benchmark NVS** — kết quả mạnh nhất dự án (+0.39 / +0.85 / +0.44 dB, hold-out,
+   liều–đáp ứng, không tối ưu camera test bằng photometric). Bước tiếp: áp lên backbone SOTA (Beta-Splatting / Spherical
+   Voronoi) và IBGS, kiểm cộng dồn, báo protocol không rò rỉ.
+2. **Thu hẹp khoảng cách pose feed-forward (VGGT/DA3) ↔ COLMAP cho NVS** — khoảng cách lớn (DA3 17.5 vs COLMAP 27.7 trên
+   Mip-360), chưa đông, vừa một GPU, dùng lại năng lực calibration.
+3. **Mô hình màu theo góc nhìn có ý thức độ phủ góc** — gần nơi field có gain, nhưng thí nghiệm §10.1 âm ⇒ rủi ro cao.
