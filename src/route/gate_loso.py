@@ -23,7 +23,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 CANDS = ("mcmc", "ibgs_final", "mcmc_res")
 
 
-BAND_FEATS = {"on": False, "L": 5, "aff": False}
+BAND_FEATS = {"on": False, "L": 5, "aff": False, "raw": False}
 
 
 def mcmc_affine(z):
@@ -72,6 +72,8 @@ def load_view(f):   # kept on the GPU in fp16; cast per crop
     c = g(np.stack([z[k] for k in CANDS]))
     if BAND_FEATS["aff"]:   # extra candidate appended after the three standard ones
         c = torch.cat([c, mcmc_affine(z).half()[None]])
+    if BAND_FEATS["raw"]:   # IBGS's own Gaussians (single-model mode)
+        c = torch.cat([c, g(z["ibgs_raw"])[None]])
     return c, g(z["gt"]), g(z["feats"]), g(z["ibgs_raw"]), bf
 
 
@@ -150,6 +152,7 @@ def main():
     ap.add_argument("--scene_tags", nargs="*", default=[], help="per-scene dump tag overrides, e.g. playroom=fix")
     ap.add_argument("--self_dev", default="", help="train on <scene>_<this tag> (cross-fitted dev views of the SAME scene), test on --tag")
     ap.add_argument("--held", nargs="*", default=[], help="evaluate only these held-out scenes (training set unchanged)")
+    ap.add_argument("--single_ibgs", action="store_true", help="ONE model: candidates {IBGS raw, IBGS final}; no MCMC input at all")
     ap.add_argument("--aff_cand", action="store_true", help="add MCMC+affine-exposure (fit to nearest warp) as a 4th candidate")
     ap.add_argument("--band_feats", action="store_true", help="add per-band evidence (|E-I| and warp-spread energy per Laplacian level)")
     ap.add_argument("--train_scenes", nargs="*", default=[], help="fixed training set (e.g. Shiny); every OTHER scene is evaluated zero-shot")
@@ -164,6 +167,8 @@ def main():
         return blend_band(net(X), C, bias, L)
     BAND_FEATS["on"] = a.band_feats; BAND_FEATS["L"] = a.levels; BAND_FEATS["aff"] = a.aff_cand
     if a.aff_cand and "mcmc_aff" not in a.cands: a.cands = list(a.cands) + ["mcmc_aff"]
+    if a.single_ibgs:
+        BAND_FEATS["raw"] = True; a.cands = ["ibgs_raw", "ibgs_final"]; a.drop = sorted(set(a.drop) | {"models"})
     stag = dict(x.split("=") for x in a.scene_tags)
     data = {s: [load_view(f) for f in sorted(glob(os.path.join(ROOT, "outputs", "route", "hybrid", f"{s}_{stag.get(s, a.tag)}", "*.npz"))) if not f.endswith(".geo.npz")] for s in a.scenes}
     data = {s: v for s, v in data.items() if v}
@@ -175,8 +180,9 @@ def main():
         import lpips
         lp = lpips.LPIPS(net="vgg").to(dev).eval()
     # candidate prior: start from "IBGS final" (the 2-stage default)
-    ALLC = list(CANDS) + (["mcmc_aff"] if a.aff_cand else [])
+    ALLC = list(CANDS) + (["mcmc_aff"] if a.aff_cand else []) + (["ibgs_raw"] if a.single_ibgs else [])
     sel = [ALLC.index(k) for k in a.cands]
+    inp = sel if a.single_ibgs else list(range(len(ALLC)))     # candidate colours the gate may see
     bias = torch.tensor([2.0 if k == "ibgs_final" else 0.0 for k in a.cands], device=dev)
     results = {}
     held_list = [s for s in data if s not in a.train_scenes] if a.train_scenes else list(data)
@@ -195,7 +201,7 @@ def main():
             train = [v for s, vs in data.items() if (s.split("#")[0] == held.split("#")[0] and s != held) == a.within and s != held for v in vs]
         def train_once(lr, seed):
             torch.manual_seed(seed); rng = np.random.default_rng(seed)
-            net = Gate(9 + 3 * len(ALLC) + (2 * L if a.band_feats else 0), len(sel) * (L if a.mode == "band" else 1)).to(dev)
+            net = Gate(9 + 3 * len(inp) + (2 * L if a.band_feats else 0), len(sel) * (L if a.mode == "band" else 1)).to(dev)
             opt = torch.optim.Adam(net.parameters(), lr); sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, a.iters)
             hist_g, hist_c = [], []
             for it in range(a.iters):
@@ -206,7 +212,7 @@ def main():
                     y0, x0 = rng.integers(0, H - cs + 1), rng.integers(0, W - cs + 1)
                     sl = (..., slice(y0, y0 + cs), slice(x0, x0 + cs))
                     c_, fe_, ir_ = c[sl].float(), fe[sl].float(), ir[sl].float()
-                    X.append(make_input(c_, fe_, ir_, a.drop, bf[sl].float() if bf is not None else None)); C.append(c_[sel]); G.append(gt[sl].float())
+                    X.append(make_input(c_[inp], fe_, ir_, a.drop, bf[sl].float() if bf is not None else None)); C.append(c_[sel]); G.append(gt[sl].float())
                 X, C, G = torch.stack(X).to(dev), torch.stack(C).to(dev), torch.stack(G).to(dev)
                 out, _ = apply(net, X, C)
                 loss = F.mse_loss(out, G)
@@ -229,7 +235,7 @@ def main():
                 c, gt, fe, ir = c.float(), gt.float(), fe.float(), ir.float(); bf = bf.float() if bf is not None else None
                 H, W = gt.shape[-2:]; ph, pw = (-H) % mult, (-W) % mult            # reflect-pad to a pyramid-friendly size
                 pad = lambda t: F.pad(t[None] if t.dim() == 3 else t, (0, pw, 0, ph), mode="replicate")
-                X = pad(make_input(c, fe, ir, a.drop, bf)); Cp = F.pad(c[sel], (0, pw, 0, ph), mode="replicate")[None]
+                X = pad(make_input(c[inp], fe, ir, a.drop, bf)); Cp = F.pad(c[sel], (0, pw, 0, ph), mode="replicate")[None]
                 o, w = apply(net, X, Cp); o = o[0, :, :H, :W]
                 ims = {k: c[i] for i, k in enumerate(CANDS)}; ims["gate"] = o
                 e = torch.stack([((c[i] - gt) ** 2).mean(0) for i in range(len(CANDS))])

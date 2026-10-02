@@ -30,15 +30,31 @@ def ssim(a, b):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("dump"); ap.add_argument("--max_views", type=int, default=0)
     a = ap.parse_args()
-
-    files = sorted(glob(os.path.join(a.dump, "*.npz")))
+    from pipeline_difix import DifixPipeline   # README quickstart (model.Difix(pretrained_name=...) does not load weights)
+    import lpips
+    lp = lpips.LPIPS(net="vgg").cuda().eval()
+    # two passes: loading difix_ref patches the shared UNet forward (multi-view), which breaks the single-view model
+    m0 = DifixPipeline.from_pretrained("nvidia/difix", trust_remote_code=True).to("cuda"); m0.set_progress_bar_config(disable=True)
+    m1 = None
+    prompt = "remove degradation"
+    cache0 = {}
+    files =[f for f in sorted(glob(os.path.join(a.dump, "*.npz"))) if not f.endswith(".geo.npz")]
     if a.max_views: files = files[: a.max_views]
     train_imgs = sorted(glob(os.path.join(a.dump, "_srcjpg", "*")))
     to_t = lambda p: torch.from_numpy(np.asarray(p, dtype=np.float32) / 255).permute(2, 0, 1).cuda()
     to_p = lambda t: Image.fromarray((t.clamp(0, 1).permute(1, 2, 0).cpu().numpy() * 255 + 0.5).astype(np.uint8))
     rows = []
     out_dir = os.path.join(a.dump, "_difix"); os.makedirs(out_dir, exist_ok=True)
-    for f in files:
+    for f in files:   # pass 1 (single-view Difix)
+        z = np.load(f); H, W = z["gt"].shape[-2:]; h8, w8 = H - H % 8, W - W % 8
+        for key, arr in (("difix(mcmc)", z["mcmc"]), ("difix(ibgs)", z["ibgs_final"])):
+            x = torch.from_numpy(arr.astype(np.float32)).cuda()
+            with torch.no_grad():
+                y = x.clone(); y[:, :h8, :w8] = to_t(m0(prompt, image=to_p(x[:, :h8, :w8]), num_inference_steps=1, timesteps=[199], guidance_scale=0.0).images[0])
+            cache0[(f, key)] = y.half().cpu()
+    del m0; torch.cuda.empty_cache()
+    m1 = DifixPipeline.from_pretrained("nvidia/difix_ref", trust_remote_code=True).to("cuda"); m1.set_progress_bar_config(disable=True)
+    for f in files:   # pass 2 (reference-conditioned Difix) + scoring
         z = np.load(f); gt = torch.from_numpy(z["gt"].astype(np.float32)).cuda(); _, H, W = gt.shape
         nv = torch.from_numpy(z["feats"][0].astype(np.float32)).cuda()
         ref = Image.open(train_imgs[int(z["src"][0])]).convert("RGB") if len(z["src"]) else None
@@ -50,7 +66,8 @@ def main():
             if r is not None: kw["ref_image"] = r.crop((0, 0, w8, h8))
             y = x.clone(); y[:, :h8, :w8] = to_t(m(prompt, **kw).images[0]); return y
         with torch.no_grad():
-            outs["difix(mcmc)"] = run(m0, cand["mcmc"])
+            outs["difix(mcmc)"] = cache0[(f, "difix(mcmc)")].float().cuda()
+            outs["difix(ibgs)"] = cache0[(f, "difix(ibgs)")].float().cuda()
             if ref is not None:
                 outs["difix_ref(mcmc)"] = run(m1, cand["mcmc"], ref)
                 outs["difix_ref(ibgs)"] = run(m1, cand["ibgs"], ref)

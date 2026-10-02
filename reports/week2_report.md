@@ -38,6 +38,49 @@ Kiểm tra bắt buộc: chỉ **lấy trung bình ảnh MCMC và IBGS** (không
   seed 1 cho bicycle, garden, stump, bonsai, counter, train). Nếu nó cũng cho ~+0.5 dB thì đóng góp riêng của IBR ở outdoor
   ≈ 0 và claim SOTA hiện tại không đứng được.
 
+### Setup công bằng (một mô hình, như baseline) — gate chỉ trên IBGS raw + IBGS final, không MCMC
+
+Theo yêu cầu 02/10 (bỏ MCMC khi chưa có motivation, so cùng setup với baseline): gate LOSO 13 scene với hai ứng viên
+của chính một mô hình IBGS, evidence cũng từ IBGS.
+
+| | bicycle | flowers | garden | stump | treehill | bonsai | counter | kitchen | room | train | truck | drjohnson | playroom |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| IBGS final | 26.08 | 22.29 | 27.59 | 27.29 | 22.93 | 34.92 | 30.63 | 31.96 | 32.50 | 23.79 | 26.18 | 29.74 | 30.15 |
+| gate 1 mô hình | 26.13 | 22.34 | 27.66 | 27.34 | 23.07 | 34.89 | 30.64 | 32.06 | 32.48 | 23.78 | 26.19 | 29.74 | 30.15 |
+
+⇒ **+0.00 … +0.14 dB: cơ chế phân xử gần như không cộng thêm gì khi không có mô hình thứ hai.** Mạng residual của
+IBGS vốn đã học được nơi nên tin warp.
+
+### Headroom của kiểu trộn render ↔ ảnh (oracle ô 8×8, có dùng GT; `src/route/headroom.py`)
+
+| scene | render | oracle(render, warp — geometry IBGS) | oracle(render, TB warp) | oracle(render, evidence của mình — depth MCMC) | oracle căn chỉnh hoàn hảo (RAFT theo GT) | % lỗi ở vùng 0 nguồn | IBGS |
+|---|---|---|---|---|---|---|---|
+| bonsai | 32.83 | 35.43 | 34.94 | 34.17 | 35.57 | 10% | 34.92 |
+| counter | 29.47 | 31.61 | 31.04 | 30.66 | 32.00 | 11% | 30.63 |
+| garden | 28.18 | 29.01 | 28.72 | 28.38 | 29.00 | 14% | 27.59 |
+| bicycle | 26.17 | 26.80 | 26.59 | 26.36 | 26.92 | 24% | 26.08 |
+| train | 22.66 | 25.03 | 24.00 | 23.15 | 25.07 | 18% | 23.79 |
+
+- Indoor/T&T: oracle hơn IBGS +0.5…+1.0 — còn dư địa trộn nhưng không lớn; outdoor: kể cả căn chỉnh hoàn hảo chỉ +0.6…+0.8
+  so với render ⇒ **trộn ảnh hiện có không thể cho gain lớn ở split chuẩn**.
+- Căn chỉnh hoàn hảo hầu như không thêm so với geometry IBGS (≤0.4) ⇒ lệch đăng ký không phải giới hạn chính.
+- Geometry của mình (depth MCMC) mất 0.3…0.85 dB dư địa so với geometry IBGS.
+- 10–24% lỗi nằm ở vùng không ảnh nào nhìn thấy — không IBR nào sửa được ⇒ cần **thông tin mới** (prior sinh ảnh / mô
+  hình tốt hơn).
+
+### Hướng mới (02/10): sang setting còn dư địa — view xa / giữ lại một cung góc + prior sinh ảnh có gate theo evidence×băng
+
+Rà soát 2024–26: (i) quỹ đạo tách rời (Nerfbusters, DL3DV split Difix): 3DGS 17.66 → Difix3D+ 18.51 → ArtiFixer 20.12;
+(ii) giữ lại cung góc liền nhau trên chính Mip-360/T&T ("Mind the Gap", 07/2026): chênh 3–11 dB so với split xen kẽ,
+62% ở tần thấp/geometry, chưa ai thử IBR/sinh ảnh. Các phương pháp sinh ảnh hiện có chỉ gate theo pixel bằng một đại
+lượng (opacity/visibility/confidence); **chưa ai** gate đồng thời theo evidence nhiều view và băng tần, đưa ảnh thật đã
+warp vào output ở vùng có support, hay báo cáo theo lớp support. Giả thuyết: PSNR thưởng trung bình hậu nghiệm ⇒ ở vùng 0
+nguồn chỉ nên giữ **tần thấp** của ảnh sinh.
+
+⏳ Thí nghiệm B-1 (đang chạy): split cung góc cho garden, bicycle, bonsai, counter, truck (K = N/8, seed 42, phủ 38–67°);
+train 3DGS gốc + IBGS cùng setup; Difix có/không tham chiếu; oracle theo băng × support giữa render / IBGS / Difix.
+⏳ D0 (Difix trên split chuẩn, đo riêng vùng có/không nguồn).
+
 ### Failure analysis — vì sao evidence ảnh không giúp ở outdoor (`src/route/failure_outdoor.py`)
 
 | | indoor (bonsai/counter/kitchen/room) | outdoor (bicycle/flowers/garden/stump/treehill) | T&T / DB |
