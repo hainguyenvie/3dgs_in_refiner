@@ -79,7 +79,20 @@ nguồn chỉ nên giữ **tần thấp** của ảnh sinh.
 
 ⏳ Thí nghiệm B-1 (đang chạy): split cung góc cho garden, bicycle, bonsai, counter, truck (K = N/8, seed 42, phủ 38–67°);
 train 3DGS gốc + IBGS cùng setup; Difix có/không tham chiếu; oracle theo băng × support giữa render / IBGS / Difix.
-⏳ D0 (Difix trên split chuẩn, đo riêng vùng có/không nguồn).
+**D0 — Difix (trọng số chính thức) trên split chuẩn** (`src/route/d0_difix.py`, `d0b_difix_lf.py`): PSNR toàn ảnh / vùng 0 nguồn.
+
+| | bonsai | garden | bicycle | train |
+|---|---|---|---|---|
+| render (MCMC) | 32.84 / 27.54 | 28.20 / 21.48 | 26.18 / 23.38 | 22.73 / 19.19 |
+| IBGS | 34.92 / 26.50 | 27.59 / 20.22 | 26.08 / 22.83 | 23.79 / 19.18 |
+| Difix-ref(IBGS) toàn ảnh | 30.88 / 25.58 | 25.05 / 19.65 | 24.26 / 21.51 | 22.89 / 18.95 |
+| Difix-ref(IBGS) chỉ ở vùng 0 nguồn | 34.70 | 27.45 | 25.67 | 23.74 |
+
+D0b (8 view, base = render): không phải do độ phân giải (576×1024 còn tệ hơn); **chỉ giữ tần thấp của Difix ở vùng 0
+nguồn** tốt hơn lấy nguyên ảnh sinh (u0: bonsai 26.21 → 27.67, garden 19.39 → 20.18) — xác nhận "chi tiết tần cao do
+diffusion sinh làm hại PSNR" — nhưng vẫn **dưới render gốc** (28.04 / 20.27). ⇒ Ở split chuẩn, prior sinh ảnh không có gì
+để sửa (vùng 0 nguồn nhỏ và render ở đó không tệ). Gate D0 của plan: **không fine-tune diffusion cho split chuẩn**; chỉ thử
+lại ở setting có vùng hỏng thật (split cung góc, B-1).
 
 ### Failure analysis — vì sao evidence ảnh không giúp ở outdoor (`src/route/failure_outdoor.py`)
 
