@@ -94,6 +94,44 @@ diffusion sinh làm hại PSNR" — nhưng vẫn **dưới render gốc** (28.04
 để sửa (vùng 0 nguồn nhỏ và render ở đó không tệ). Gate D0 của plan: **không fine-tune diffusion cho split chuẩn**; chỉ thử
 lại ở setting có vùng hỏng thật (split cung góc, B-1).
 
+### Đo dư địa ở setting view xa (02/10)
+
+**Garden, split giữ cung góc** (K = N/8 view liền nhau, ~39°; 3DGS gốc + IBGS train cùng split):
+
+| | PSNR | vùng 0 nguồn |
+|---|---|---|
+| 3DGS gốc (split chuẩn: 27.49) | 24.20 | 21.04 |
+| IBGS | 24.06 | 21.23 |
+| Difix-ref(3DGS) toàn ảnh / chỉ ở vùng 0 nguồn | 23.12 / 24.06 | 20.53 |
+
+Vùng 0 nguồn tăng ~4% → 25%, 3DGS tụt 3.3 dB, nhưng cả IBR lẫn Difix đều không cải thiện. (bonsai sector: 3DGS 28.13 vs
+32.28 chuẩn; dừng các scene sector khác theo yêu cầu "1 scene trước".)
+
+**Nerfbusters aloe** (benchmark chính thức: video train và video eval riêng; undistort OPENCV→PINHOLE; downscale 2; mask
+visibility theo protocol, độ phủ 0.76):
+
+| | PSNR (mask) | PSNR toàn ảnh | LPIPS |
+|---|---|---|---|
+| 3DGS gốc | 12.08 | 12.06 | 0.602 |
+| IBGS | 9.57 | 8.65 | 0.690 |
+| mạng IBGS trên 3DGS | 10.55 | 10.54 | — |
+| Difix-ref(3DGS) toàn ảnh | — | 12.30 | 0.541 |
+| Difix chỉ ở vùng 0 nguồn | — | 12.33 | 0.559 |
+
+D0b 12 view (vùng 0 nguồn 71%): render 14.85; Difix nguyên 14.72; **chỉ tần thấp của Difix 15.04–15.13**.
+
+- **IBR (IBGS) sụp khi rời quỹ đạo train** (−2.5…−3.4 dB so với 3DGS) — động cơ thật cho "tin ảnh thật có điều kiện support".
+- **Ở nơi prior sinh ảnh có ích (render vỡ nặng), chỉ giữ tần thấp của ảnh sinh tốt hơn dùng nguyên ảnh** — giả thuyết
+  tần số đúng ở cả hai phía (ảnh thật và ảnh sinh).
+- Gain hậu xử lý nhỏ (+0.2…0.3); các phương pháp công bố (+0.85 Difix3D+, +2.5 ArtiFixer) đến từ chưng cất ảnh sinh vào
+  mô hình 3D lúc train.
+- Lưu ý: 3DGS aloe 12.08 thấp hơn trung bình 12 scene công bố (17.66); render tối hơn GT (lệch phơi sáng giữa hai video);
+  chưa kiểm tra scene khác.
+
+**Đề xuất chờ người dùng quyết định:** hướng extrapolation trên Nerfbusters (12 scene) — "Difix3D có gate": khi chưng cất
+ảnh giả vào 3DGS lúc train, chỉ dùng tần thấp của ảnh sinh ở vùng 0 support, evidence ảnh thật ở vùng có support; một stage
+lúc inference; đối thủ Difix3D+ 18.51 / ArtiFixer 20.12.
+
 ### Failure analysis — vì sao evidence ảnh không giúp ở outdoor (`src/route/failure_outdoor.py`)
 
 | | indoor (bonsai/counter/kitchen/room) | outdoor (bicycle/flowers/garden/stump/treehill) | T&T / DB |

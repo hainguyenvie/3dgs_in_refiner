@@ -43,6 +43,7 @@ def main():
     for f in files:
         z = np.load(f); gt = torch.from_numpy(z["gt"].astype(np.float32)).cuda(); base = torch.from_numpy(z[a.base].astype(np.float32)).cuda()
         u0 = torch.from_numpy(z["feats"][0].astype(np.float32)).cuda() < 0.5; H, W = gt.shape[-2:]
+        if len(z["src"]) == 0: continue   # sector views outside every source cone
         ref = Image.open(train_imgs[int(z["src"][0])]).convert("RGB")
         outs = {}
         with torch.no_grad():
