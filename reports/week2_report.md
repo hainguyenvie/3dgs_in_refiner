@@ -1,6 +1,6 @@
 # Week 2 — Tin ảnh thật đến tần số nào? Phân xử Gaussians ↔ IBR theo vùng và theo băng tần
 
-> File báo cáo **duy nhất** của tuần 2, bám `plan/week2_plan.md`. Cập nhật: 01/10/2026 21:00 UTC, đang chạy tiếp.
+> File báo cáo **duy nhất** của tuần 2, bám `plan/week2_plan.md`. Cập nhật: 02/10/2026 01:30 UTC, đang chạy tiếp.
 > ⏳ = đang chạy. Máy: 1×H200 mới. Dữ liệu tải lại từ nguồn chính thức (khớp byte). Checkpoint IBGS lấy từ link
 > Drive của tác giả. MCMC train lại, khớp tuần 1 (train 22.73 vs 22.61, bonsai 32.84 vs 32.78, bicycle 26.18 vs 26.13).
 > Số IBGS tái tạo bằng `metrics.py` của tác giả trùng với số trong pipeline của mình (bonsai 34.92, counter 30.63,
@@ -178,6 +178,17 @@ Gate train trên view test của 12 scene còn lại, chấm trên scene giữ l
   ⏳ Đang chạy lại toàn bộ LOSO-13 với playroom sửa trong tập train của mọi fold để bảng cuối nhất quán.
 - MCMC drjohnson 29.32 (tuần 1: 29.50) — dao động seed lớn hơn thường lệ ở scene này.
 
+### 4.0′ Bảng chính (bản nhất quán cuối cùng: playroom dùng config MCMC tuần 1 ở mọi fold)
+
+| dataset | MCMC | IBGS (ckpt) | GADA (paper) | **gate band (LOSO)** | Δ GADA | gate pixel (LOSO) |
+|---|---|---|---|---|---|---|
+| Mip-360 | 28.32 / .844 / .212 | 28.47 / .839 / .215 | 28.63 | **29.28** / .856 / .198 | **+0.65** | 29.22 |
+| T&T | 24.57 / .867 / .180 | 24.98 / .869 / .172 | 24.93 | **25.59** / .883 / .159 | **+0.66** | 25.59 |
+| DB | 29.69 / .903 / .298 | 29.94 / .910 / .303 | 30.22 | **30.39** / .914 / .284 | **+0.17** | (30.17, playroom config repo) |
+
+Gate theo băng ≥ gate theo pixel (Deep-Blending-style) nhưng chênh nhỏ (+0.06 Mip-360, 0 T&T): cấu trúc băng tần cho diễn
+giải và intuition; phần lớn gain đến từ phân xử có điều kiện support giữa các bộ ước lượng.
+
 ### 4.0b Giao thức sạch nhất — gate train **chỉ trên Shiny** (3 scene ngoài benchmark), zero-shot cho 13 scene
 
 Không một view nào của Mip-360 / T&T / DB được dùng để học. Shiny: dữ liệu NeX đã xử lý của tác giả IBGS, MCMC + IBGS
@@ -313,6 +324,35 @@ Nới ngưỡng depth không cứu được (34.16 ở ngưỡng 0.03). ⇒ **Ch
 base quyết định.** Hệ hiện tại vì vậy dùng 2 mô hình Gaussian. Muốn còn 1 mô hình thì cần Gaussians có geometry nhất quán.
 
 ---
+
+### 4.4 Phương pháp riêng, KHÔNG dùng IBGS (chỉ 1 mô hình MCMC + ảnh train) — đang phát triển
+
+Yêu cầu 02/10: một phương pháp của riêng mình, không phụ thuộc IBGS. Đã thử hai hướng:
+
+**(a) BandFuse — mạng trộn warp thô của riêng mình** (warp vẫn dùng depth của IBGS). Tốt nhất ngang IBGS ở indoor
+(bonsai 34.83, counter 30.63 với cross-fitting), không vượt; hỏng ở train (phơi sáng thay đổi). Chi tiết các biến thể:
+LOSO 33.8–34.1 (bonsai); attention/residual/căn chỉnh sub-pixel/ca khó chỉ ±0.2. Học cross-fitting trên chính scene
+cho +0.6–0.9 so với LOSO — dữ liệu đúng phân bố quan trọng hơn kiến trúc. Một quan sát đẹp: cross-fitting trên bonsai
+tự học ra quy tắc gần nhị phân (tần cao tin Gaussians 1.00/1.00, ba băng thô tin ảnh thật 0.005/0.004/0.003).
+
+**(b) Band-limited warping với depth của chính MCMC** (`src/route/bandwarp.py`, hoàn toàn không IBGS). Mỗi tầng pyramid
+warp riêng, lấy evidence tần thấp, trộn tuyến tính theo tầng với trọng số fit LOSO (5 tham số):
+
+| scene | MCMC | own (LOSO, 5 trọng số) | Δ |
+|---|---|---|---|
+| bonsai / counter / kitchen / room | 32.84 / 29.48 / 32.31 / 32.38 | 33.42 / 29.93 / 32.51 / 32.73 | +0.58 / +0.45 / +0.20 / +0.35 |
+| bicycle / flowers / garden / stump / treehill | 26.18 / 22.43 / 28.20 / 27.69 / 23.36 | 26.19 / 22.51 / 28.21 / 27.69 / 23.39 | ≈ 0 |
+| train / truck / drjohnson / playroom | 22.73 / 26.44 / 29.32 / 30.07 | 22.88 / 26.51 / 29.32 / 30.09 | +0.15 / +0.07 / 0 / +0.02 |
+
+- Có tín hiệu thật ở indoor (+0.2…+0.6) nhưng **xa gate dùng IBGS** và ≈ 0 ở outdoor.
+- Nút thắt đo được: **support** — depth MCMC chỉ cho 40–55% pixel có nguồn hợp lệ ở outdoor/T&T/DB (IBGS ~85–95%).
+- Giả thuyết "nới ngưỡng depth theo tầng (τ_l ∝ 2^l)" **bị bác bỏ**: lọt điểm bị che khuất → hại (bonsai 12 view: 31.59
+  vs 32.22 khi cố định). Lệch đăng ký nhỏ thì band-limit được; che khuất thì không.
+- Prior art (rà soát 02/10): lọc theo độ bất định depth đã có (Stewart et al. EGSR 2003 — hai băng, tần thấp từ ảnh, tần
+  cao từ bản dựng khác; Brédif 2014). Phần mới khả dĩ: bản học được, nhiều băng, với render 3DGS là nguồn tần cao.
+
+**Đang làm cho phương pháp riêng:** 9 fold cross-fitting MCMC (bonsai/counter/garden × 3) để có ~4× dữ liệu huấn luyện
+cho một mạng IBR riêng; bước sau là geometry nhất quán của riêng mình để nâng support.
 
 ## 5. Định vị so với related work (rà soát 01/10)
 
