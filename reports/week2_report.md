@@ -1,194 +1,66 @@
-# Week 2 — Tin ảnh thật đến tần số nào? Phân xử Gaussians ↔ IBR theo vùng và theo băng tần
+# Week 2 — Ảnh thật đáng tin ở đâu và ở tần số nào? Kết luận và các hướng đã thử
 
-> File báo cáo **duy nhất** của tuần 2, bám `plan/week2_plan.md`. Cập nhật: 02/10/2026 01:40 UTC, đang chạy tiếp.
->
-> ⚠️ **Đọc §0′ trước:** phần lớn gain so với SOTA của gate là hiệu ứng ensemble hai mô hình, chưa phải cơ chế evidence.
-> ⏳ = đang chạy. Máy: 1×H200 mới. Dữ liệu tải lại từ nguồn chính thức (khớp byte). Checkpoint IBGS lấy từ link
-> Drive của tác giả. MCMC train lại, khớp tuần 1 (train 22.73 vs 22.61, bonsai 32.84 vs 32.78, bicycle 26.18 vs 26.13).
-> Số IBGS tái tạo bằng `metrics.py` của tác giả trùng với số trong pipeline của mình (bonsai 34.92, counter 30.63,
-> train 23.79, bicycle 26.08, garden 27.59). MCMC khớp tuần 1 ở cả garden 28.20 (28.19), stump 27.69 (27.69), kitchen 32.31
-> (32.21), truck 26.42 (26.31).
+> File báo cáo **duy nhất** của tuần 2 (bám `plan/week2_plan.md`). Cập nhật cuối: 02/10/2026. **Không còn job nào chạy.**
+> Máy: 1×H200. Dữ liệu tải lại từ nguồn chính thức (khớp byte). Checkpoint IBGS lấy từ link Drive của tác giả; số IBGS
+> re-render bằng `metrics.py` của tác giả trùng khít giữa server cũ và mới. MCMC train lại khớp tuần 1 (±0.1 dB).
+> Code: `src/route/`, script: `scripts/`. Kết quả số gốc: `outputs/route/*.json`, log trên server `logs/`.
 
 ---
 
-## 0′. Cảnh báo quan trọng (02/10) — gain chủ yếu là ensemble
+## 0. Kết luận tuần 2 (đọc phần này trước)
 
-Kiểm tra bắt buộc: chỉ **lấy trung bình ảnh MCMC và IBGS** (không gate, không evidence) đã cho gần hết gain:
+**Chưa có phương pháp nào đứng được ở setup công bằng.** Tuần này cho ra một bộ phát hiện phân tích có giá trị và loại
+bỏ được nhiều hướng bằng số liệu, nhưng claim "vượt SOTA" trước đây **không còn giữ được** sau đối chứng ensemble.
 
-| scene | MCMC | IBGS | I+r | avg(MCMC, IBGS) | avg 3 ứng viên | gate (LOSO) |
-|---|---|---|---|---|---|---|
-| bicycle | 26.18 | 26.08 | 26.30 | 26.76 | 26.77 | 26.80 |
-| flowers | 22.43 | 22.29 | 22.55 | 23.13 | 23.12 | 23.16 |
-| garden | 28.20 | 27.59 | 28.10 | 28.50 | 28.51 | 28.51 |
-| stump | 27.69 | 27.29 | 27.57 | 28.21 | 28.17 | 28.20 |
-| treehill | 23.36 | 22.93 | 23.13 | 24.04 | 24.04 | 24.09 |
-| bonsai | 32.84 | 34.92 | 35.38 | 34.71 | 35.18 | **35.46** |
-| counter | 29.48 | 30.63 | 30.87 | 30.69 | 30.90 | 31.00 |
-| kitchen | 32.31 | 31.96 | 32.73 | 32.85 | 32.99 | 32.99 |
-| room | 32.38 | 32.50 | 33.12 | 33.09 | 33.24 | 33.27 |
-| train | 22.73 | 23.79 | 23.94 | 23.96 | 24.10 | 24.20 |
-| truck | 26.42 | 26.18 | 26.72 | 27.02 | 27.08 | 26.99 |
-| drjohnson | 29.32 | 29.74 | 29.46 | 30.18 | 30.08 | 30.14 |
-| playroom | 30.07 | 30.15 | 30.11 | 30.63 | 30.58 | 30.63 |
-| **Mip-360** | 28.32 | 28.47 | 28.86 | 29.11 | 29.21 | 29.28 |
-
-- Ở outdoor và DB, gate ≈ trung bình hai mô hình: gain đến từ **giảm phương sai giữa hai mô hình Gaussian độc lập**, không
-  phải từ phân xử theo evidence. Gate chỉ đóng góp thật ở indoor (bonsai +0.28, counter +0.10 so với trung bình 3).
-- So hệ 2 mô hình với IBGS/GADA (1 mô hình) là không công bằng. ⏳ Đối chứng bắt buộc: ensemble 2 seed MCMC (đang train
-  seed 1 cho bicycle, garden, stump, bonsai, counter, train). Nếu nó cũng cho ~+0.5 dB thì đóng góp riêng của IBR ở outdoor
-  ≈ 0 và claim SOTA hiện tại không đứng được.
-
-### Setup công bằng (một mô hình, như baseline) — gate chỉ trên IBGS raw + IBGS final, không MCMC
-
-Theo yêu cầu 02/10 (bỏ MCMC khi chưa có motivation, so cùng setup với baseline): gate LOSO 13 scene với hai ứng viên
-của chính một mô hình IBGS, evidence cũng từ IBGS.
-
-| | bicycle | flowers | garden | stump | treehill | bonsai | counter | kitchen | room | train | truck | drjohnson | playroom |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| IBGS final | 26.08 | 22.29 | 27.59 | 27.29 | 22.93 | 34.92 | 30.63 | 31.96 | 32.50 | 23.79 | 26.18 | 29.74 | 30.15 |
-| gate 1 mô hình | 26.13 | 22.34 | 27.66 | 27.34 | 23.07 | 34.89 | 30.64 | 32.06 | 32.48 | 23.78 | 26.19 | 29.74 | 30.15 |
-
-⇒ **+0.00 … +0.14 dB: cơ chế phân xử gần như không cộng thêm gì khi không có mô hình thứ hai.** Mạng residual của
-IBGS vốn đã học được nơi nên tin warp.
-
-### Headroom của kiểu trộn render ↔ ảnh (oracle ô 8×8, có dùng GT; `src/route/headroom.py`)
-
-| scene | render | oracle(render, warp — geometry IBGS) | oracle(render, TB warp) | oracle(render, evidence của mình — depth MCMC) | oracle căn chỉnh hoàn hảo (RAFT theo GT) | % lỗi ở vùng 0 nguồn | IBGS |
-|---|---|---|---|---|---|---|---|
-| bonsai | 32.83 | 35.43 | 34.94 | 34.17 | 35.57 | 10% | 34.92 |
-| counter | 29.47 | 31.61 | 31.04 | 30.66 | 32.00 | 11% | 30.63 |
-| garden | 28.18 | 29.01 | 28.72 | 28.38 | 29.00 | 14% | 27.59 |
-| bicycle | 26.17 | 26.80 | 26.59 | 26.36 | 26.92 | 24% | 26.08 |
-| train | 22.66 | 25.03 | 24.00 | 23.15 | 25.07 | 18% | 23.79 |
-
-- Indoor/T&T: oracle hơn IBGS +0.5…+1.0 — còn dư địa trộn nhưng không lớn; outdoor: kể cả căn chỉnh hoàn hảo chỉ +0.6…+0.8
-  so với render ⇒ **trộn ảnh hiện có không thể cho gain lớn ở split chuẩn**.
-- Căn chỉnh hoàn hảo hầu như không thêm so với geometry IBGS (≤0.4) ⇒ lệch đăng ký không phải giới hạn chính.
-- Geometry của mình (depth MCMC) mất 0.3…0.85 dB dư địa so với geometry IBGS.
-- 10–24% lỗi nằm ở vùng không ảnh nào nhìn thấy — không IBR nào sửa được ⇒ cần **thông tin mới** (prior sinh ảnh / mô
-  hình tốt hơn).
-
-### Hướng mới (02/10): sang setting còn dư địa — view xa / giữ lại một cung góc + prior sinh ảnh có gate theo evidence×băng
-
-Rà soát 2024–26: (i) quỹ đạo tách rời (Nerfbusters, DL3DV split Difix): 3DGS 17.66 → Difix3D+ 18.51 → ArtiFixer 20.12;
-(ii) giữ lại cung góc liền nhau trên chính Mip-360/T&T ("Mind the Gap", 07/2026): chênh 3–11 dB so với split xen kẽ,
-62% ở tần thấp/geometry, chưa ai thử IBR/sinh ảnh. Các phương pháp sinh ảnh hiện có chỉ gate theo pixel bằng một đại
-lượng (opacity/visibility/confidence); **chưa ai** gate đồng thời theo evidence nhiều view và băng tần, đưa ảnh thật đã
-warp vào output ở vùng có support, hay báo cáo theo lớp support. Giả thuyết: PSNR thưởng trung bình hậu nghiệm ⇒ ở vùng 0
-nguồn chỉ nên giữ **tần thấp** của ảnh sinh.
-
-⏳ Thí nghiệm B-1 (đang chạy): split cung góc cho garden, bicycle, bonsai, counter, truck (K = N/8, seed 42, phủ 38–67°);
-train 3DGS gốc + IBGS cùng setup; Difix có/không tham chiếu; oracle theo băng × support giữa render / IBGS / Difix.
-**D0 — Difix (trọng số chính thức) trên split chuẩn** (`src/route/d0_difix.py`, `d0b_difix_lf.py`): PSNR toàn ảnh / vùng 0 nguồn.
-
-| | bonsai | garden | bicycle | train |
-|---|---|---|---|---|
-| render (MCMC) | 32.84 / 27.54 | 28.20 / 21.48 | 26.18 / 23.38 | 22.73 / 19.19 |
-| IBGS | 34.92 / 26.50 | 27.59 / 20.22 | 26.08 / 22.83 | 23.79 / 19.18 |
-| Difix-ref(IBGS) toàn ảnh | 30.88 / 25.58 | 25.05 / 19.65 | 24.26 / 21.51 | 22.89 / 18.95 |
-| Difix-ref(IBGS) chỉ ở vùng 0 nguồn | 34.70 | 27.45 | 25.67 | 23.74 |
-
-D0b (8 view, base = render): không phải do độ phân giải (576×1024 còn tệ hơn); **chỉ giữ tần thấp của Difix ở vùng 0
-nguồn** tốt hơn lấy nguyên ảnh sinh (u0: bonsai 26.21 → 27.67, garden 19.39 → 20.18) — xác nhận "chi tiết tần cao do
-diffusion sinh làm hại PSNR" — nhưng vẫn **dưới render gốc** (28.04 / 20.27). ⇒ Ở split chuẩn, prior sinh ảnh không có gì
-để sửa (vùng 0 nguồn nhỏ và render ở đó không tệ). Gate D0 của plan: **không fine-tune diffusion cho split chuẩn**; chỉ thử
-lại ở setting có vùng hỏng thật (split cung góc, B-1).
-
-### Đo dư địa ở setting view xa (02/10)
-
-**Garden, split giữ cung góc** (K = N/8 view liền nhau, ~39°; 3DGS gốc + IBGS train cùng split):
-
-| | PSNR | vùng 0 nguồn |
+| Hướng | Kết quả | Kết luận |
 |---|---|---|
-| 3DGS gốc (split chuẩn: 27.49) | 24.20 | 21.04 |
-| IBGS | 24.06 | 21.23 |
-| Difix-ref(3DGS) toàn ảnh / chỉ ở vùng 0 nguồn | 23.12 / 24.06 | 20.53 |
+| R0 — chọn tập ảnh nguồn (routing) | oracle cấp ảnh chỉ +0.12 dB so với IBGS (indoor) | Dừng (đúng gate R0 của plan) |
+| Gate theo băng tần × support, trộn MCMC / IBGS | LOSO: Mip 29.28 / T&T 25.59 / DB 30.39 — "vượt GADA" | **Không hợp lệ:** gần hết gain là ensemble 2 mô hình (trung bình MCMC+IBGS đã được Mip 29.11). Hệ 2 mô hình so với baseline 1 mô hình |
+| Cùng gate, setup công bằng (1 mô hình IBGS: raw + final) | +0.00 … +0.14 dB | Cơ chế gần như không cộng thêm gì |
+| Phương pháp riêng không dùng IBGS (BandFuse; band-limited warping với depth MCMC) | tốt nhất ngang IBGS ở indoor; outdoor ≈ 0 | Chưa đạt; nút thắt là geometry |
+| Prior sinh ảnh (Difix, hậu xử lý) — split chuẩn | giảm PSNR ở mọi lớp support | Loại |
+| Split giữ một cung góc (garden) | 3DGS tụt 3.3 dB; IBGS và Difix đều không giúp | Không có dư địa cho IBR/sinh ảnh |
+| Nerfbusters (view xa thật, 1 scene: aloe) | IBGS sụp (−2.5…−3.4 dB); Difix +0.24; chỉ lấy tần thấp của ảnh sinh tốt hơn lấy nguyên ảnh | Gain quá nhỏ |
+| Chưng cất ảnh sinh vào 3DGS ("Difix3D có gate") | không làm | **Không có motivation:** teacher (Difix) không tốt hơn student; lợi ích duy nhất là tốc độ inference |
 
-Vùng 0 nguồn tăng ~4% → 25%, 3DGS tụt 3.3 dB, nhưng cả IBR lẫn Difix đều không cải thiện. (bonsai sector: 3DGS 28.13 vs
-32.28 chuẩn; dừng các scene sector khác theo yêu cầu "1 scene trước".)
+**Những gì đã chứng minh được (dùng được cho hướng tiếp theo):**
+1. Ở split chuẩn, **dư địa của mọi cách trộn ảnh thật rất nhỏ**: oracle chỉ hơn IBGS +0.5…1.0 dB ở indoor/T&T, ≈ +0.6 so
+   với render ở outdoor kể cả khi căn chỉnh hoàn hảo; 10–24% lỗi nằm ở vùng không ảnh nguồn nào nhìn thấy (§5).
+2. **Ảnh thật chủ yếu có ích ở tần thấp**: lợi thế của IBGS so với Gaussians giảm đơn điệu từ băng thô sang băng mịn ở 5/8
+   scene; **ở vùng không có nguồn ảnh thật luôn thua ở mọi băng (8/8)** (§3).
+3. Tần số "giao cắt" do **tỉ số sai số hai bên** quyết định, không do độ lệch đăng ký σ (§3.3).
+4. **IBR (IBGS) không bền khi rời quỹ đạo train** (Nerfbusters, −2.5…−3.4 dB so với 3DGS) (§7).
+5. Ở nơi prior sinh ảnh có ích, **chỉ giữ tần thấp của ảnh sinh tốt hơn dùng nguyên ảnh** (§7).
 
-**Nerfbusters aloe** (benchmark chính thức: video train và video eval riêng; undistort OPENCV→PINHOLE; downscale 2; mask
-visibility theo protocol, độ phủ 0.76):
-
-| | PSNR (mask) | PSNR toàn ảnh | LPIPS |
-|---|---|---|---|
-| 3DGS gốc | 12.08 | 12.06 | 0.602 |
-| IBGS | 9.57 | 8.65 | 0.690 |
-| mạng IBGS trên 3DGS | 10.55 | 10.54 | — |
-| Difix-ref(3DGS) toàn ảnh | — | 12.30 | 0.541 |
-| Difix chỉ ở vùng 0 nguồn | — | 12.33 | 0.559 |
-
-D0b 12 view (vùng 0 nguồn 71%): render 14.85; Difix nguyên 14.72; **chỉ tần thấp của Difix 15.04–15.13**.
-
-- **IBR (IBGS) sụp khi rời quỹ đạo train** (−2.5…−3.4 dB so với 3DGS) — động cơ thật cho "tin ảnh thật có điều kiện support".
-- **Ở nơi prior sinh ảnh có ích (render vỡ nặng), chỉ giữ tần thấp của ảnh sinh tốt hơn dùng nguyên ảnh** — giả thuyết
-  tần số đúng ở cả hai phía (ảnh thật và ảnh sinh).
-- Gain hậu xử lý nhỏ (+0.2…0.3); các phương pháp công bố (+0.85 Difix3D+, +2.5 ArtiFixer) đến từ chưng cất ảnh sinh vào
-  mô hình 3D lúc train.
-- Lưu ý: 3DGS aloe 12.08 thấp hơn trung bình 12 scene công bố (17.66); render tối hơn GT (lệch phơi sáng giữa hai video);
-  chưa kiểm tra scene khác.
-
-**Đề xuất chờ người dùng quyết định:** hướng extrapolation trên Nerfbusters (12 scene) — "Difix3D có gate": khi chưng cất
-ảnh giả vào 3DGS lúc train, chỉ dùng tần thấp của ảnh sinh ở vùng 0 support, evidence ảnh thật ở vùng có support; một stage
-lúc inference; đối thủ Difix3D+ 18.51 / ArtiFixer 20.12.
-
-### Failure analysis — vì sao evidence ảnh không giúp ở outdoor (`src/route/failure_outdoor.py`)
-
-| | indoor (bonsai/counter/kitchen/room) | outdoor (bicycle/flowers/garden/stump/treehill) | T&T / DB |
-|---|---|---|---|
-| support, geometry IBGS | 0.95–0.98 | 0.76–0.96 | 0.71–0.93 |
-| support, depth MCMC (của mình) | 0.78–0.84 | **0.41–0.72** | 0.45–0.58 |
-| MSE tần thấp (~8 px) warp ÷ MCMC, *ở nơi geometry IBGS hợp lệ* | 0.63–1.21 | **1.22–2.17** | 0.77–1.86 |
-| lệch màu theo ảnh (gain của affine, dB) | 0.1–0.4 | 0.2–1.0 | 0.2–0.9 |
-| bất đồng tần thấp giữa 2 ảnh nguồn (×1e4) | 3.7–10.9 | 8.5–19.9 | 7–84 |
-| tỉ số ở vùng gần / giữa / xa | ≈ 1 | **gần tệ nhất** (bicycle 4.2/3.1/2.3) | truck 3.7/2.2/1.7 |
-
-- **H1 (geometry/support) đúng:** depth MCMC mất support ở outdoor.
-- **H2 đúng và quan trọng hơn:** kể cả với geometry tốt (IBGS), warp ở outdoor vẫn kém MCMC 1.2–2.2× ngay ở tần thấp ⇒
-  sửa depth không đủ.
-- **Vùng gần camera hỏng nặng nhất**, đúng δ ≈ f·b·Δz/z² (depth sai ở z nhỏ gây lệch lớn).
-- Hai ảnh outdoor bất đồng với nhau nhiều hơn ⇒ có nội dung không tĩnh (lá/cỏ theo gió, bóng nắng) mà không depth nào sửa.
-- Và MCMC outdoor vốn đã đúng ở tần thấp (S_I nhỏ) ⇒ ảnh thật không còn gì để thêm (đúng công thức Wiener).
-
-## 0. Tóm tắt
-
-| | Kết luận | Bằng chứng |
-|---|---|---|
-| **Hướng 1 gốc: chọn ảnh nguồn nào** | **Ít dư địa** → dừng theo gate R0 của plan | Oracle chọn tập nguồn trên toàn ảnh chỉ +0.12 dB (bonsai, counter). Coverage-K **kém** nearest-K (§2). |
-| **Đòn bẩy thật: tin ảnh thật đến tần số nào, ở vùng nào** | Mức tin ảnh thật phụ thuộc **băng tần × support × scene**. Ở 5/8 scene ảnh thật đúng ở tần thấp, sai ở tần cao (lệch đăng ký sub-pixel). Ở garden/stump ảnh thật thua ở mọi băng; ở truck thua ở băng thô nhất (phơi sáng). **Đúng ở 8/8:** không có nguồn thì ảnh thật thua ở mọi băng. ⇒ cần gate học được, không phải tách băng cố định. | Phổ sai số theo băng tần trên 8 scene (§3.2). |
-| **Phương pháp** | Gate học được, trộn MCMC / IBGS / residual-trên-MCMC **theo băng Laplacian**, có điều kiện trên evidence (support, disagreement, biên depth test) | LOSO: gate không thấy GT của scene được chấm. |
-| **Gate train chỉ trên Shiny, zero-shot 13 scene** | Mip-360 29.15 (+0.52 so với GADA), T&T 25.50 (+0.57), DB 30.14 (−0.08). Không view benchmark nào được dùng để học. | §4.0b |
-| **Kết quả gate (LOSO, đủ 13 scene)** | **Mip-360 29.26** (GADA 28.63, +0.63; IBGS 28.47/28.53, +0.79/+0.73) — thắng GADA 9/9 scene. **T&T 25.54** (GADA 24.93, +0.61). **DB 30.40** (GADA 30.22, +0.18) với MCMC playroom dùng config tuần 1 (config repo thiếu `opacity_reg`: 30.14, −0.08). SSIM/LPIPS tốt hơn ở cả ba dataset. | §4.0 |
-| **Baseline không học (8 scene)** | "Băng mịn nhất từ MCMC, băng thô từ ảnh thật nơi có nguồn" **không thua cả MCMC lẫn IBGS ở scene nào trong 8**; hơn GADA (paper) ở 7/8 (thua ở bonsai: 35.23 vs 35.37). Gain nhỏ ở garden (+0.02 so với MCMC), lớn ở kitchen (+0.63). | §4.2 |
-
-**Intuition một câu:** ảnh warp ≈ ảnh đích bị dịch δ sub-pixel (do pose, calib, depth), nên sai số của nó ở tần số ω tăng
-theo ω²σ². Ảnh thật vì thế đáng tin cho màu, phơi sáng và shading phụ thuộc góc nhìn (tần thấp), nhưng phá chi tiết (tần
-cao). Lấy trung bình nhiều nguồn không cứu được tần cao, nên *chọn nguồn nào* gần như không quan trọng. Điều quan trọng
-là *tin evidence đến băng tần nào*, và điều đó phụ thuộc vào support tại từng vùng.
-
-Đây là chỗ mở rộng L2R-GS. L2R cho thấy external evidence không xếp hạng được vùng không có nguồn. Ở đây support quyết
-định không chỉ *có* tin evidence ngoài không, mà còn tin *đến tần số nào*.
+**Quyết định của người dùng trong tuần:** bỏ MCMC khi chưa có motivation và so cùng setup với baseline; hướng
+calibration (tuần 1) để dành cho bài khác; dừng hướng sinh ảnh/chưng cất. Hướng tiếp theo: chưa chốt.
 
 ---
 
-## 1. Setup
+## 1. Setup và mức độ công bằng
 
 | Thứ | Giá trị |
 |---|---|
-| Base explicit | 3DGS-MCMC, config tác giả, SfM init, calib phát hành, 30k it |
-| IBR | IBGS (NeurIPS'25), checkpoint tác giả. Warper nằm trong kernel: mỗi pixel giữ ≤5 nguồn hợp lệ đầu tiên theo thứ tự, depth test tương đối 0.01. Mạng aggregation dùng mean-pool + CNN residual. |
-| Ứng viên cho gate | `I` = MCMC raw; `E` = IBGS final; `I+r` = mạng residual của IBGS đặt lên render MCMC (không train lại) |
-| Evidence mỗi pixel (có lúc test) | số warp hợp lệ (0–5), biên depth test, \|warp − render\|, độ phân tán giữa các warp, \|residual\|, \|MCMC − IBGS-base\|, log-depth |
-| Split / độ phân giải | LLFF 1/8. Mip outdoor r4, indoor r2. T&T, DB và Shiny theo đúng độ phân giải eval của IBGS (T&T thực ra là 980×545 dù cờ là `-r 2`; đã kiểm GT khớp 1e-15). |
+| Dataset | Mip-NeRF 360 (9), T&T (train, truck), DB (drjohnson, playroom); split LLFF 1/8 |
+| Độ phân giải | Mip outdoor r4, indoor r2; T&T/DB theo độ phân giải eval của IBGS (T&T là 980×545 dù cờ `-r 2`; GT khớp 1e-15) |
+| IBR | IBGS (NeurIPS'25), checkpoint tác giả. Warper trong kernel: mỗi pixel ≤5 nguồn hợp lệ đầu tiên, depth test tương đối 0.01; mạng mean-pool + CNN residual |
+| SOTA đối chiếu | IBGS checkpoint re-render: Mip 28.47 / T&T 24.98 / DB 29.94 (paper 28.53 / 24.89 / 29.92); GADA (paper): 28.63 / 24.93 / 30.22 |
 | Metric | PSNR / SSIM / LPIPS(vgg) trên ảnh 8-bit, trung bình theo view |
-| Giao thức gate | **LOSO**: train trên view test của các scene *khác*, chấm trên scene giữ lại. ⏳ Thêm 2 giao thức: **LODO** (giữ lại cả dataset) và **Shiny-only** (train gate trên Shiny, zero-shot cho cả 13 scene benchmark, không view benchmark nào được dùng để học). |
+
+**Công bằng — tự đánh giá:**
+- Gate với ứng viên MCMC: **không công bằng** (2 mô hình, base mạnh hơn baseline) → chỉ giữ làm bằng chứng phân tích.
+- Gate 1 mô hình IBGS: công bằng (cùng mô hình, cùng thông tin).
+- Split cung góc: 3DGS đọc `images_4` có sẵn còn IBGS tự resize (chênh GT rất nhỏ, nên thống nhất); split tự dựng theo luật
+  của "Mind the Gap" (arXiv 07/2026, chưa phản biện), chưa có baseline công bố.
+- Nerfbusters: **chưa kiểm chứng protocol**: 3DGS của graphdeco (paper dùng gsplat), mask tự cài lại (pseudo-GT 3DGS thay
+  nerfacto, độ phủ 0.76 so với ~0.9 trong FlowR), mới 1/12 scene nên chưa đối chiếu được với 3DGS 17.66 trung bình.
 
 ---
 
-## 2. R0 — routing *tập nguồn* có đáng làm không?
+## 2. R0 — routing tập ảnh nguồn
 
-Probe `src/route/r0_probe.py` giữ nguyên Gaussians, warper và mạng IBGS, chỉ đổi tập nguồn đưa vào kernel. Pool gồm 8
-ứng viên theo luật IBGS, và **mọi** tập con kích thước 1–3 đều được render. PSNR trung bình theo view:
+Probe `src/route/r0_probe.py`: giữ nguyên Gaussians, warper và mạng IBGS, chỉ đổi tập nguồn; render **mọi** tập con 1–3
+trong pool 8 ứng viên.
 
 | scene | IBGS mặc định | nearest-2 | coverage-3 | oracle ảnh K≤3 | oracle patch (chọn bằng SSIM, chấm MSE) |
 |---|---|---|---|---|---|
@@ -196,341 +68,209 @@ Probe `src/route/r0_probe.py` giữ nguyên Gaussians, warper và mạng IBGS, c
 | counter | 30.63 | −0.05 | −0.09 | **+0.12** | +0.57 |
 | train | 23.79 | +0.21 | +0.01 | +1.11 | +1.33 |
 
-- **Random-K kém xa** (−3.6…−7.7 dB). Đưa nguồn tồi vào mạng residual còn tệ hơn không dùng warp: mạng tin warp một
-  cách mù quáng.
-- **Train là ngoại lệ, nhưng không khai thác được.** Camera quay vòng, nên pool chứa các frame quay lại cùng chỗ sau
-  120–300 frame, khác phơi sáng. Oracle lớn chủ yếu vì "đoán đúng phơi sáng của ảnh test", một thông tin phụ thuộc GT.
-  Rule hợp lệ "chọn nguồn khớp màu với render" còn **hại** (−2.6 dB), vì render Gaussian mang màu trung bình chứ không
-  phải màu của target.
-- **Quyết định** theo bảng §6 của plan ("oracle gần best fixed-K → dừng router lớn"): không xây router chọn nguồn, dồn
-  sang hành động "dừng / K=0", rồi mở rộng thành phân xử theo vùng và theo băng tần.
+- Random-K kém xa (−3.6…−7.7 dB): mạng residual tin warp mù quáng.
+- Train: oracle lớn chủ yếu do "đoán đúng phơi sáng của ảnh test" (camera quay vòng, frame quay lại khác phơi sáng) — phụ
+  thuộc GT, không khai thác hợp lệ được; rule "chọn nguồn khớp màu với render" còn hại (−2.6 dB).
+- ⇒ Dừng router chọn nguồn (bảng quyết định §6 của plan).
 
 ---
 
-## 3. Intuition và bằng chứng
+## 3. Phát hiện cơ chế: ảnh thật đáng tin ở tần thấp và nơi có support
 
-### 3.1 Mô hình lệch đăng ký
-Gọi T là ảnh đích. Có hai nguồn ước lượng:
-- **Ảnh IBR:** E = T(x+δ) + sai lệch appearance, với δ ~ N(0, σ²). Khi đó
-  E|e^{iωδ} − 1|² = 2(1 − e^{−ω²σ²/2}), nên phổ sai số là S_E(ω) ≈ 2|T̂(ω)|²(1 − e^{−ω²σ²/2}). Nó gần 0 ở tần thấp và
-  tiến tới 2|T̂|² ở tần cao, tức là còn tệ hơn đoán bằng 0.
-- **Gaussians:** I = T + e_I, với e_I là phần mô hình không biểu diễn được (phụ thuộc góc nhìn, phơi sáng, giới hạn
-  dung lượng).
+### 3.1 Mô hình
+Ảnh warp E = T(x+δ) + sai lệch appearance, δ ~ N(0, σ²) ⇒ phổ sai số S_E(ω) ≈ 2|T̂(ω)|²(1 − e^{−ω²σ²/2}) (≈0 ở tần thấp,
+→2|T̂|² ở tần cao). Gaussians I = T + e_I. Trộn tối ưu theo băng (sai số độc lập): w_E(ω) = S_I / (S_I + S_E); không nguồn
+⇒ w_E = 0. Đây là bản theo băng tần của khung support của L2R-GS: support không chỉ quyết định *có* tin evidence ngoài,
+mà *tin đến tần số nào*.
 
-Trộn tối ưu theo từng băng (sai số độc lập) cho trọng số Wiener w_E(ω) = S_I / (S_I + S_E). Có ba dự đoán kiểm chứng được:
-1. Lợi thế của ảnh thật giảm dần khi tần số tăng.
-2. Tần số giao cắt thấp hơn ở nơi σ·|∇T| lớn (outdoor, lá cây).
-3. Nhiều nguồn hợp lệ hơn → phần phương sai nhỏ hơn → tin hơn. Không có nguồn → w_E = 0.
-
-### 3.2 Phổ sai số đo được (`src/route/band_spectrum.py`)
-Bảng dưới là tỉ số MSE IBGS / MCMC theo băng Laplacian, từ thô nhất đến mịn nhất. Tỉ số < 1 nghĩa là ảnh thật tốt hơn
-Gaussians.
+### 3.2 Phổ sai số đo được (`src/route/band_spectrum.py`) — tỉ số MSE IBGS / MCMC theo băng, thô nhất → mịn nhất
 
 | scene | vùng ≥3 nguồn | vùng 1–2 nguồn | vùng **0 nguồn** |
 |---|---|---|---|
 | bonsai | 0.18 → 0.47 → 0.61 → 0.75 → **0.95** | 0.53 → … → 1.04 | 2.70 → 1.47 → 1.31 → 1.23 → 1.19 |
 | counter | 0.66 → 0.65 → 0.71 → 0.80 → **0.90** | 0.81 → … → 1.00 | 1.14 → … → 1.17 |
+| kitchen | 0.66 → … → **1.17** | 1.26 → … → 1.15 | 2.04 → … → 1.37 |
 | train | 0.68 → 0.69 → 0.80 → 0.82 → **0.88** | 0.70 → … → 0.98 | 0.96 → 1.18 → … → 1.10 |
 | bicycle | 0.82 → **1.05 → 1.04 → 1.04 → 1.03** | 0.77 → **1.08 → … → 1.06** | 1.02 → 1.40 → … → 1.12 |
-| kitchen | 0.66 → … → **1.17** | 1.26 → … → 1.15 | 2.04 → … → 1.37 |
 | garden | **1.05 → 1.03 → 1.09 → 1.11 → 1.13** | 1.07 → … → 1.16 | 1.35 → … → 1.40 |
 | stump | **1.20 → 1.06 → 1.10 → 1.10 → 1.09** | 1.05 → … → 1.05 | 1.05 → … → 1.12 |
 | truck | **1.27** → 0.97 → 0.95 → 0.91 → 0.96 | 0.90 → 0.99 → 0.99 → 0.97 → 1.05 | 1.52 → … → 1.19 |
 
-Đọc bảng (8 scene) — **dự đoán đúng một phần, phải nói rõ:**
-- **Đúng ở 5/8** (bonsai, counter, kitchen, train, bicycle): lợi thế của ảnh thật lớn nhất ở băng thô và mất dần ở băng
-  mịn. Riêng 4 scene này cho thấy điều **ngược với cách IBGS/GADA tự giải thích** ("ảnh nguồn đem lại chi tiết tần cao").
-- **Garden, stump:** ảnh thật (qua IBGS) thua MCMC ở **mọi** băng → ở đây không băng nào nên tin ảnh thật.
-- **Truck:** ngang hoặc hơn ở băng mịn–trung nhưng **thua ở băng thô nhất** (1.27). Nhiều khả năng do hiệu chỉnh phơi sáng
-  của IBGS (affine theo nguồn đầu tiên) làm lệch màu tổng thể — scene video có phơi sáng thay đổi.
-- **Đúng ở 8/8:** vùng không có nguồn → ảnh thật thua ở mọi băng (1.05–2.70). Mạng residual "bịa" khi không có evidence.
-- Nhiều nguồn thì tỉ số thường thấp hơn (bonsai, counter, train), nhưng không đều ở mọi scene (kitchen 1–2 nguồn tệ hơn).
-- ⇒ **Hệ quả cho phương pháp:** mức tin ảnh thật thay đổi theo băng × support × scene và không có một quy tắc cố định
-  nào đúng cho mọi scene. Đây là lý do cần gate *học được, có điều kiện evidence*; tách băng cố định chỉ là xấp xỉ.
+- Đúng ở 5/8 (bonsai, counter, kitchen, train, bicycle): lợi thế lớn nhất ở băng thô, mất dần ở băng mịn — ngược với cách
+  IBGS/GADA tự giải thích ("ảnh nguồn đem lại chi tiết tần cao").
+- Garden/stump: ảnh thật thua ở mọi băng; truck: thua ở băng thô nhất (nhiều khả năng do hiệu chỉnh phơi sáng của IBGS).
+- **Vùng 0 nguồn: ảnh thật thua ở mọi băng ở cả 8/8 scene** (mạng residual "bịa" khi không có evidence).
 
-### 3.2b Cái gì quyết định tần số giao cắt? (`src/route/misreg_sigma.py`, chỉ để phân tích — có dùng GT)
-Đo trực tiếp độ lệch giữa warp và GT bằng phase correlation sub-pixel (patch 32×32 có texture, ≥95% hợp lệ):
+### 3.3 Cái gì quyết định tần số giao cắt (`src/route/misreg_sigma.py`, phân tích có GT)
 
-| scene | σ RMS (px, độ phân giải eval) | median \|shift\| | giao cắt đo được (§3.2, vùng ≥3 nguồn) |
-|---|---|---|---|
-| bonsai (r2) | 1.44 | 0.77 | băng mịn nhất (0.95) |
-| counter (r2) | 1.31 | 0.60 | băng mịn nhất (0.90) |
-| train (r1) | 0.97 | 0.38 | băng mịn nhất (0.88) |
-| bicycle (r4) | 0.86 | 0.32 | ngay sau băng thô nhất |
-| garden (r4) | 0.62 | 0.21 | ⏳ |
+| scene | σ RMS (px, độ phân giải eval) | giao cắt (vùng ≥3 nguồn) |
+|---|---|---|
+| bonsai (r2) / counter (r2) / train | 1.44 / 1.31 / 0.97 | băng mịn nhất |
+| bicycle (r4) / garden (r4) | 0.86 / 0.62 | ngay sau băng thô nhất / không giao cắt |
 
-**σ một mình không dự đoán được giao cắt.** Indoor có σ lớn hơn, nhưng lại giao cắt muộn hơn. Thứ quyết định là **tỉ số
-hai phổ sai số** S_I/(S_I+S_E), tức đúng công thức Wiener ban đầu chứ không chỉ vế lệch đăng ký. Ở băng thô nhất (vùng
-≥3 nguồn):
-- **Indoor:** MCMC sai **gấp 5.5 lần** IBGS ở bonsai (shading theo góc nhìn, phản xạ — thứ ảnh thật mang đúng), nên ảnh
-  thật thắng đến tận băng mịn.
-- **Outdoor:** MCMC vốn tốt (bicycle chỉ gấp 1.2 lần), nên lệch đăng ký làm ảnh thật thua ngay từ băng thứ hai.
+σ một mình **không** dự đoán được giao cắt (indoor σ lớn hơn nhưng giao cắt muộn hơn). Thứ quyết định là tỉ số S_I/S_E:
+indoor MCMC sai gấp 5.5× IBGS ở băng thô (bonsai — shading/phản xạ mà ảnh thật mang đúng); outdoor MCMC vốn đã tốt.
 
-Câu chuyện đúng là "tin ảnh thật theo **tỉ số sai số của hai bên** × băng tần × support", không phải "σ quyết định tần
-số cắt".
-
-### 3.3 Gate học được tự tái hiện cấu trúc này
-Trọng số trung bình mà gate theo băng (LOSO) dành cho **MCMC**, theo tầng từ mịn nhất đến thô nhất:
-
-| scene | trọng số cho MCMC |
-|---|---|
-| bonsai | 0.40 / 0.31 / 0.22 / 0.12 / 0.05 |
-| counter | 0.42 / 0.20 / 0.16 / 0.11 / 0.05 |
-| train | 0.41 / 0.17 / 0.13 / 0.09 / 0.05 |
-
-Không có ràng buộc nào ép gate theo hướng này. Nó tự học được rằng tần cao nên tin Gaussians, tần thấp nên tin ảnh thật.
+### 3.4 Gate học được tự tái hiện cấu trúc này
+Trọng số gate (LOSO) dành cho Gaussians theo tầng mịn → thô: bonsai 0.40/0.31/0.22/0.12/0.05, counter
+0.42/0.20/0.16/0.11/0.05, train 0.41/0.17/0.13/0.09/0.05 — không ràng buộc nào ép theo hướng này.
 
 ---
 
-## 4. Kết quả
+## 4. Gate phân xử theo băng tần — kết quả và vì sao không còn hợp lệ
 
-### 4.0 Bảng chính — gate theo băng tần, LOSO đủ 13 scene (PSNR / SSIM / LPIPS)
+### 4.1 Kết quả với ứng viên MCMC (2 mô hình — chỉ để tham khảo)
+Ứng viên: MCMC raw, IBGS final, residual IBGS trên MCMC; evidence: số warp hợp lệ, biên depth test, bất đồng warp, độ lớn
+residual, bất đồng giữa hai mô hình, depth. LOSO đủ 13 scene (playroom dùng config MCMC tuần 1, `opacity_reg 0.001`):
 
-Gate train trên view test của 12 scene còn lại, chấm trên scene giữ lại (không GT nào của scene được chấm được dùng).
-"IBGS (ckpt)" = checkpoint tác giả re-render bằng `metrics.py` của tác giả (trùng khít giữa 2 server); "IBGS (paper)" và
-"GADA (paper)" = số công bố.
-
-| scene | MCMC | IBGS (ckpt) | I+r | **gate** | IBGS (paper) | GADA (paper) | Δ GADA |
+| dataset | MCMC | IBGS (ckpt) | GADA (paper) | gate băng (LOSO) | gate pixel | gate Shiny zero-shot | LODO |
 |---|---|---|---|---|---|---|---|
-| bicycle | 26.18 | 26.08 | 26.30 | **26.79** / .826 / .172 | 26.06 | 26.16 | +0.63 |
-| flowers | 22.43 | 22.29 | 22.55 | **23.16** / .683 / .285 | 22.34 | 22.29 | +0.87 |
-| garden | 28.20 | 27.59 | 28.10 | **28.48** / .886 / .111 | 27.57 | 27.74 | +0.74 |
-| stump | 27.69 | 27.29 | 27.57 | **28.19** / .837 / .181 | 27.31 | 27.33 | +0.86 |
-| treehill | 23.36 | 22.93 | 23.13 | **24.08** / .697 / .289 | 23.06 | 23.16 | +0.92 |
-| bonsai | 32.84 | 34.92 | 35.38 | **35.41** / .961 / .191 | 34.98 | 35.37 | +0.04 |
-| counter | 29.48 | 30.63 | 30.87 | **30.99** / .934 / .196 | 30.65 | 30.84 | +0.15 |
-| kitchen | 32.31 | 31.96 | 32.73 | **33.00** / .939 / .129 | 32.10 | 32.09 | +0.91 |
-| room | 32.38 | 32.50 | 33.12 | **33.19** / .941 / .228 | 32.68 | 32.67 | +0.52 |
-| train | 22.73 | 23.79 | 23.94 | **24.19** / .859 / .194 | 23.69 | 23.67 | +0.52 |
-| truck | 26.42 | 26.18 | 26.72 | **26.89** / .907 / .126 | 26.10 | 26.19 | +0.70 |
-| drjohnson | 29.32 | 29.74 | 29.46 | **30.14** / .914 / .285 | 29.51 | — | — |
-| playroom | 29.48 | 30.15 | 29.54 | 30.13 / .910 / .301 | 30.34 | — | — |
-| playroom (MCMC config tuần 1, `opacity_reg 0.001`) | 30.07 | 30.15 | 30.11 | **30.64** / .913 / .283 | 30.34 | — | — |
-| drjohnson (cùng lần chạy, playroom sửa trong tập train) | 29.32 | 29.74 | 29.46 | **30.16** / .914 / .286 | 29.51 | — | — |
-| **Mip-360** | 28.32 / .844 / .212 | 28.47 / .839 / .215 | 28.86 | **29.26** / .856 / .198 | 28.53 | 28.63 | **+0.63** |
-| **T&T** | 24.57 / .867 / .180 | 24.98 / .869 / .172 | 25.33 | **25.54** / .883 / .160 | 24.89 | 24.93 | **+0.61** |
-| **DB** | 29.40 / .901 / .312 | 29.94 / .910 / .303 | 29.50 | 30.14 / .912 / .293 | 29.92 | 30.22 | −0.08 |
-| **DB (playroom config tuần 1)** | 29.70 | 29.94 | 29.79 | **30.40** / .914 / .285 | 29.92 | 30.22 | **+0.18** |
+| Mip-360 | 28.32 | 28.47 | 28.63 | 29.28 | 29.22 | 29.15 | ≈ LOSO |
+| T&T | 24.57 | 24.98 | 24.93 | 25.59 | 25.59 | 25.50 | ≈ LOSO |
+| DB | 29.69 | 29.94 | 30.22 | 30.39 | — | 30.14* | — |
 
-- Mip-360: thắng GADA ở **9/9 scene**; outdoor +0.63…+0.92, indoor +0.04…+0.91.
-- DB: base MCMC playroom với config repo là 29.48; với config tuần 1 (`opacity_reg 0.001`, giống config drjohnson của tác
-  giả — repo thiếu tham số này ở playroom, đã ghi nhận tuần 1) là **30.07** (tuần 1: 30.03). Với base này gate playroom
-  **30.64**, DB **30.40 > GADA 30.22 (+0.18)**. Báo cả hai bản; bản config tuần 1 là bản nhất quán với baseline tuần 1.
-  ⏳ Đang chạy lại toàn bộ LOSO-13 với playroom sửa trong tập train của mọi fold để bảng cuối nhất quán.
-- MCMC drjohnson 29.32 (tuần 1: 29.50) — dao động seed lớn hơn thường lệ ở scene này.
+\* Shiny zero-shot dùng playroom với config repo MCMC (thiếu `opacity_reg`).
+Cross-fitting trên chính scene (giấu 1/8 view train, train lại MCMC_dev + IBGS_dev): bonsai 35.56, counter 31.10.
 
-### 4.0′ Bảng chính (bản nhất quán cuối cùng: playroom dùng config MCMC tuần 1 ở mọi fold)
+### 4.2 Đối chứng ensemble — tại sao các số trên không phải đóng góp của cơ chế
 
-| dataset | MCMC | IBGS (ckpt) | GADA (paper) | **gate band (LOSO)** | Δ GADA | gate pixel (LOSO) |
-|---|---|---|---|---|---|---|
-| Mip-360 | 28.32 / .844 / .212 | 28.47 / .839 / .215 | 28.63 | **29.28** / .856 / .198 | **+0.65** | 29.22 |
-| T&T | 24.57 / .867 / .180 | 24.98 / .869 / .172 | 24.93 | **25.59** / .883 / .159 | **+0.66** | 25.59 |
-| DB | 29.69 / .903 / .298 | 29.94 / .910 / .303 | 30.22 | **30.39** / .914 / .284 | **+0.17** | (30.17, playroom config repo) |
-
-Gate theo băng ≥ gate theo pixel (Deep-Blending-style) nhưng chênh nhỏ (+0.06 Mip-360, 0 T&T): cấu trúc băng tần cho diễn
-giải và intuition; phần lớn gain đến từ phân xử có điều kiện support giữa các bộ ước lượng.
-
-### 4.0b Giao thức sạch nhất — gate train **chỉ trên Shiny** (3 scene ngoài benchmark), zero-shot cho 13 scene
-
-Không một view nào của Mip-360 / T&T / DB được dùng để học. Shiny: dữ liệu NeX đã xử lý của tác giả IBGS, MCMC + IBGS
-checkpoint tác giả, cùng pipeline.
-
-| scene | Shiny zero-shot | LOSO | GADA (paper) |
-|---|---|---|---|
-| bicycle / flowers / garden / stump / treehill | 26.66 / 23.03 / 28.39 / 28.08 / 23.65 | 26.79 / 23.16 / 28.48 / 28.19 / 24.08 | 26.16 / 22.29 / 27.74 / 27.33 / 23.16 |
-| bonsai / counter / kitchen / room | 35.50 / 31.02 / 32.85 / 33.13 | 35.41 / 30.99 / 33.00 / 33.19 | 35.37 / 30.84 / 32.09 / 32.67 |
-| train / truck | 24.15 / 26.85 | 24.19 / 26.89 | 23.67 / 26.19 |
-| drjohnson / playroom | 30.13 / 30.15 | 30.14 / 30.13 | — |
-| **Mip-360 / T&T / DB** | **29.15 / 25.50 / 30.14** | 29.26 / 25.54 / 30.14 | 28.63 / 24.93 / 30.22 |
-
-Zero-shot từ một dataset khác chỉ kém LOSO 0.11 dB trên Mip-360 và vẫn hơn GADA +0.52 (Mip-360), +0.57 (T&T), thắng 11/11
-scene có số GADA. ⇒ Cơ chế phân xử theo băng tần **khái quát qua dataset**; kết quả không đến từ việc học trên benchmark.
-
-### 4.0d Cross-fitting đầy đủ trên chính scene (giao thức sạch nhất theo từng scene) ⏳ 1/5 scene
-
-Mỗi scene: train thêm MCMC_dev và IBGS_dev trên bản sao dữ liệu đã bỏ view test và giấu 1/8 view train ("dev"). Ở các
-view dev, mọi ứng viên (MCMC, IBGS final, I+r) có lỗi đúng như lúc test. Gate học **chỉ trên view dev của chính scene**,
-rồi áp cho các mô hình đầy đủ ở view test. Không dùng scene khác, không đụng GT test. Chi phí phát sinh chỉ lúc train
-(1 MCMC + 1 IBGS thêm); inference không đổi.
-
-| scene | MCMC | IBGS | I+r | gate LOSO | gate Shiny zero-shot | **gate cross-fit (self-dev)** | GADA |
-|---|---|---|---|---|---|---|---|
-| bonsai | 32.84 | 34.92 | 35.38 | 35.41 | 35.50 | **35.56** / .961 / .187 | 35.37 |
-| counter, train, bicycle, garden | ⏳ IBGS_dev đang train (2 làn song song) | | | | | | |
-
-Dev MCMC bonsai ở view dev: 32.54 dB (mô hình đầy đủ ở view test: 32.84) — lỗi ở view dev đúng tầm lỗi lúc test.
-
-### 4.0c LODO — gate không thấy cả dataset được chấm (train trên 2 dataset còn lại)
-
-| scene (Mip-360, gate train chỉ trên T&T + DB) | bicycle | flowers | garden | stump | treehill | bonsai | ⏳ |
-|---|---|---|---|---|---|---|---|
-| LODO | 26.79 | 23.15 | 28.45 | 28.14 | 24.05 | 35.47 | counter/kitchen/room … |
-| LOSO | 26.79 | 23.16 | 28.48 | 28.19 | 24.08 | 35.41 | |
-
-LODO gần như trùng LOSO: gate không cần thấy dataset được chấm.
-
-### 4.1 Gate theo băng tần, LOSO (PSNR / SSIM / LPIPS)
-
-| scene | MCMC | IBGS final | I+r (không train lại) | **gate band, LOSO-3** | **gate band, LOSO-4** | GADA (paper) |
-|---|---|---|---|---|---|---|
-| bonsai | 32.84 / .953 / .212 | 34.92 / .957 / .194 | 35.38 / .960 / .185 | 35.32 / .961 / .191 | **35.51** / .961 / .191 | 35.37 |
-| counter | 29.48 / .924 / .219 | 30.63 / .926 / .199 | 30.87 / .929 / .190 | 31.01 / .933 / .192 | **31.02** / .933 / .193 | 30.84 |
-| train | 22.73 / .838 / .221 | 23.79 / .844 / .208 | 23.94 / .853 / .194 | **24.22** / .860 / .191 | **24.22** / .859 / .192 | 23.67 |
-| bicycle | 26.18 / .809 / .184 | 26.08 / .803 / .194 | 26.30 / .814 / .171 | — | **26.75** / .826 / .170 | 26.16 |
-
-- LOSO-3 train trên {bonsai, counter, train} trừ scene được chấm. LOSO-4 thêm bicycle vào tập train.
-- Gate train **chỉ trên 2 scene indoor Mip-360** vẫn khái quát sang T&T train: 24.22, tức +0.43 so với IBGS, +0.55 so
-  với GADA.
-- Thêm một scene (bicycle) vào tập train làm bonsai tăng từ 35.32 lên 35.51. Kỳ vọng tiếp tục tốt lên khi đủ 13 scene.
-- **Bicycle (outdoor) đạt 26.75 dù gate chỉ học trên 3 scene không có outdoor**: +0.57 so với MCMC, +0.67 so với IBGS,
-  +0.59 so với GADA. Ở outdoor, riêng MCMC hay riêng IBGS đều không vượt được GADA; phần trộn theo băng tần thì vượt.
-- Cột LPIPS dùng gói `lpips`; chỉ so PSNR với số paper của GADA. Số của GADA là số công bố, không phải mình chạy lại.
-
-Phân rã theo lớp support (LOSO-4, PSNR gộp theo pixel):
-
-| scene | lớp (tỉ lệ) | MCMC | IBGS | I+r | gate |
+| scene | MCMC | IBGS | avg(MCMC, IBGS) | avg 3 ứng viên | gate (LOSO) |
 |---|---|---|---|---|---|
-| bonsai | 0 nguồn (3%) | 27.29 | 25.63 | 27.91 | **27.92** |
-| | 1–2 (21%) | 30.77 | 32.28 | 32.79 | **32.84** |
-| | ≥3 (76%) | 32.36 | 36.39 | 36.34 | **36.59** |
-| counter | 0 nguồn (4%) | 24.65 | 24.19 | 24.91 | **25.31** |
-| | 1–2 (23%) | 28.48 | 29.13 | 29.43 | **29.56** |
-| | ≥3 (73%) | 29.83 | 31.32 | 31.37 | **31.50** |
+| bicycle | 26.18 | 26.08 | 26.76 | 26.77 | 26.80 |
+| flowers | 22.43 | 22.29 | 23.13 | 23.12 | 23.16 |
+| garden | 28.20 | 27.59 | 28.50 | 28.51 | 28.51 |
+| stump | 27.69 | 27.29 | 28.21 | 28.17 | 28.20 |
+| treehill | 23.36 | 22.93 | 24.04 | 24.04 | 24.09 |
+| bonsai | 32.84 | 34.92 | 34.71 | 35.18 | 35.46 |
+| counter | 29.48 | 30.63 | 30.69 | 30.90 | 31.00 |
+| kitchen | 32.31 | 31.96 | 32.85 | 32.99 | 32.99 |
+| room | 32.38 | 32.50 | 33.09 | 33.24 | 33.27 |
+| train | 22.73 | 23.79 | 23.96 | 24.10 | 24.20 |
+| truck | 26.42 | 26.18 | 27.02 | 27.08 | 26.99 |
+| drjohnson | 29.32 | 29.74 | 30.18 | 30.08 | 30.14 |
+| playroom | 30.07 | 30.15 | 30.63 | 30.58 | 30.63 |
+| **Mip-360** | 28.32 | 28.47 | 29.11 | 29.21 | 29.28 |
 
-### 4.1a LOSO-8 (8 scene benchmark đã có; gate train trên 7 scene còn lại)
+Ở outdoor và DB, gate ≈ trung bình hai mô hình độc lập (giảm phương sai), không phải phân xử theo evidence; gate chỉ
+đóng góp thật ở indoor (bonsai +0.28, counter +0.10 so với trung bình 3). Đối chứng ensemble 2 seed MCMC đã bắt đầu nhưng
+dừng khi quyết định bỏ MCMC.
 
-| scene | MCMC | IBGS final | I+r | **gate band** | GADA (paper) | Δ GADA | Δ IBGS |
+### 4.3 Setup công bằng — 1 mô hình IBGS (ứng viên IBGS raw + IBGS final, evidence từ IBGS)
+
+| | bicycle | flowers | garden | stump | treehill | bonsai | counter | kitchen | room | train | truck | drjohnson | playroom |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| IBGS final | 26.08 | 22.29 | 27.59 | 27.29 | 22.93 | 34.92 | 30.63 | 31.96 | 32.50 | 23.79 | 26.18 | 29.74 | 30.15 |
+| gate 1 mô hình | 26.13 | 22.34 | 27.66 | 27.34 | 23.07 | 34.89 | 30.64 | 32.06 | 32.48 | 23.78 | 26.19 | 29.74 | 30.15 |
+
+⇒ +0.00 … +0.14 dB: mạng residual của IBGS vốn đã học được nơi nên tin warp.
+
+### 4.4 Các thử nghiệm phụ của gate (với MCMC, tham khảo)
+- Baseline không học "băng mịn từ MCMC, băng thô từ IBGS nơi có nguồn": không thua cả MCMC lẫn IBGS ở scene nào trong 8.
+- Thêm evidence theo băng (hai vế Wiener) hay ứng viên affine phơi sáng: không giúp (±0.08).
+- Một lần train gate bị phân kỳ (fold garden) → đã thêm clip gradient + kiểm tra "loss phải thấp hơn ứng viên đơn tốt nhất".
+- Mạng residual IBGS đặt lên render MCMC (không train lại) hơn IBGS ở 8/8 scene đã đo — base mạnh + residual từ ảnh thật;
+  nhưng warp bằng geometry MCMC thì kém (12–25% pixel trượt depth test so với 3% với geometry IBGS).
+
+---
+
+## 5. Dư địa của việc trộn ảnh thật ở split chuẩn (`src/route/headroom.py`, oracle ô 8×8, có GT)
+
+| scene | render (MCMC) | oracle(render, warp — geometry IBGS) | oracle(render, TB warp) | oracle(render, evidence của mình — depth MCMC) | oracle căn chỉnh hoàn hảo (RAFT theo GT) | % lỗi ở vùng 0 nguồn | IBGS |
 |---|---|---|---|---|---|---|---|
-| bicycle | 26.18 | 26.08 | 26.30 | **26.79** / .826 / .171 | 26.16 | +0.63 | +0.71 |
-| garden | 28.20 | 27.59 | 28.10 | **28.49** / .886 / .112 | 27.74 | +0.75 | +0.90 |
-| stump | 27.69 | 27.29 | 27.57 | **28.17** / .837 / .181 | 27.33 | +0.84 | +0.88 |
-| bonsai | 32.84 | 34.92 | 35.38 | **35.50** / .962 / .190 | 35.37 | +0.13 | +0.58 |
-| counter | 29.48 | 30.63 | 30.87 | **31.01** / .933 / .194 | 30.84 | +0.17 | +0.38 |
-| kitchen | 32.31 | 31.96 | 32.73 | **32.98** / .938 / .129 | 32.09 | +0.89 | +1.02 |
-| train | 22.73 | 23.79 | 23.94 | **24.18** / .859 / .193 | 23.67 | +0.51 | +0.39 |
-| truck | 26.42 | 26.18 | 26.72 | **27.03** / .907 / .126 | 26.19 | +0.84 | +0.85 |
-| **TB 6 Mip** | 29.45 | 29.75 | 30.16 | **30.49** | 29.92 | **+0.57** | +0.74 |
-| **TB T&T** | 24.58 | 24.99 | 25.33 | **25.61** | 24.93 | **+0.68** | +0.62 |
+| bonsai | 32.83 | 35.43 | 34.94 | 34.17 | 35.57 | 10% | 34.92 |
+| counter | 29.47 | 31.61 | 31.04 | 30.66 | 32.00 | 11% | 30.63 |
+| garden | 28.18 | 29.01 | 28.72 | 28.38 | 29.00 | 14% | 27.59 |
+| bicycle | 26.17 | 26.80 | 26.59 | 26.36 | 26.92 | 24% | 26.08 |
+| train | 22.66 | 25.03 | 24.00 | 23.15 | 25.07 | 18% | 23.79 |
 
-- Lần chạy đầu của fold garden bị **phân kỳ** (logit nổ, gate chọn 100% IBGS → 27.59). Đã thêm clip gradient + kiểm tra
-  "loss train phải thấp hơn ứng viên đơn tốt nhất, không thì train lại với lr nhỏ hơn"; fold garden chạy lại → 28.49.
-  Các fold khác không bị ảnh hưởng (gate ≠ một ứng viên đơn). Chuỗi 13 scene dùng bản đã có cơ chế này.
-- Ở outdoor, nơi riêng IBGS thua MCMC, gate vẫn cộng thêm +0.29…+0.61 so với MCMC.
+- Indoor/T&T: oracle hơn IBGS +0.5…+1.0; outdoor: chỉ +0.6…+0.8 so với render kể cả căn chỉnh hoàn hảo.
+- Căn chỉnh hoàn hảo hầu như không thêm so với geometry IBGS (≤0.4) ⇒ lệch đăng ký không phải giới hạn chính.
+- Geometry của mình (depth MCMC) mất 0.3…0.85 dB dư địa so với geometry IBGS.
 
-### 4.1b Ablation sớm (LOSO-4)
+### Failure analysis outdoor (`src/route/failure_outdoor.py`)
 
-| biến thể | bonsai | counter | train | bicycle |
-|---|---|---|---|---|
-| gate band (mặc định) | 35.51 | 31.02 | 24.22 | 26.75 |
-| + evidence theo băng (\|E−I\| và độ phân tán warp mỗi tầng = hai vế Wiener) | 35.57 | 31.03 | 24.19 | 26.74 |
-| + ứng viên MCMC + affine phơi sáng | 35.43 | 31.03 | 24.21 | 26.67 |
-
-Evidence theo băng và ứng viên affine phơi sáng đều không giúp thêm (±0.08, trong nhiễu): gate đã tự rút được các thông tin
-đó từ các ứng viên hiện có.
-
-### 4.2 Baseline không học (`src/route/baselines_band.py`, 8 scene)
-Tầng cắt k chọn theo LOSO (ra k = 1 ở mọi scene). "E" là nguồn tần thấp: IBGS final hoặc I+r.
-
-| scene | MCMC | IBGS | I+r | MCMC + affine phơi sáng | tách băng cố định [E=IBGS] | **tách băng theo support [E=IBGS]** | tách băng theo support [E=I+r] | gate (LOSO-4) | GADA (paper) |
-|---|---|---|---|---|---|---|---|---|---|
-| bicycle | 26.18 | 26.08 | 26.30 | 25.27 | 26.42 | **26.49** | 26.38 | 26.75 | 26.16 |
-| garden | 28.20 | 27.59 | 28.10 | 27.90 | 28.05 | 28.22 | **28.25** | ⏳ | 27.74 |
-| stump | 27.69 | 27.29 | 27.57 | 27.57 | 27.62 | **27.82** | 27.64 | ⏳ | 27.33 |
-| bonsai | 32.84 | 34.92 | 35.38 | 33.04 | 34.97 | 35.23 | 35.27 | 35.51 | 35.37 |
-| counter | 29.48 | 30.63 | 30.87 | 29.44 | 30.73 | **30.87** | 30.86 | 31.02 | 30.84 |
-| kitchen | 32.31 | 31.96 | 32.73 | 32.23 | 32.29 | 32.66 | **32.94** | ⏳ | 32.09 |
-| train | 22.73 | 23.79 | 23.94 | 23.10 | 23.84 | **23.93** | 23.79 | 24.22 | 23.67 |
-| truck | 26.42 | 26.18 | 26.72 | 26.30 | 26.45 | 26.64 | **26.68** | ⏳ | 26.19 |
-
-Định nghĩa các baseline:
-- **Tách băng cố định:** các băng mịn lấy từ MCMC, các băng thô lấy từ IBGS.
-- **Tách băng theo support:** giống trên, nhưng chỉ lấy IBGS ở nơi có ≥1 nguồn hợp lệ.
-- **MCMC + affine phơi sáng:** dùng đúng mô hình phơi sáng của IBGS, áp lên MCMC.
-
-Đọc bảng:
-- **Gain không chỉ đến từ phơi sáng.** Affine chỉ giúp train (+0.37) và hại bicycle (−0.91).
-- **Quy tắc không học (tách theo support) không thua cả MCMC lẫn IBGS ở scene nào trong 8** và hơn GADA (paper) ở 7/8 (bonsai 35.23 < 35.37; counter chỉ hơn 0.03).
-  Ở outdoor yếu (garden) gain chỉ +0.02–0.05 so với MCMC; ở kitchen +0.63; ở bicycle thắng cả hai thành phần.
-- Nguồn tần thấp tốt nhất đổi theo scene (IBGS ở bicycle/stump/train, I+r ở garden/kitchen/truck) — thêm một lý do để
-  gate tự chọn.
-- **Gate học được cộng thêm +0.09…+0.29 dB** ở 4 scene đã có LOSO; ⏳ 4 scene còn lại đang chạy.
-
-### 4.3 Phát hiện phụ: base mạnh + residual từ ảnh thật
-Mạng residual của IBGS đặt lên render MCMC, không train lại, hơn IBGS ở **cả 8 scene** (bonsai 35.38 vs 34.92, kitchen
-32.73 vs 31.96, truck 26.72 vs 26.18), nhưng ở garden/stump vẫn kém MCMC một chút (28.10 vs 28.20; 27.57 vs 27.69). Mạng nhận
-"warp − render" làm input nên sửa lỗi của bất kỳ base nào, và base mạnh hơn cho kết quả tốt hơn.
-
-Nhưng warp bằng geometry của MCMC thì kém: bonsai 34.42, với 12% pixel trượt depth test so với 3% khi dùng geometry IBGS.
-Nới ngưỡng depth không cứu được (34.16 ở ngưỡng 0.03). ⇒ **Chất lượng evidence do geometry quyết định, chất lượng màu do
-base quyết định.** Hệ hiện tại vì vậy dùng 2 mô hình Gaussian. Muốn còn 1 mô hình thì cần Gaussians có geometry nhất quán.
-
----
-
-### 4.4 Phương pháp riêng, KHÔNG dùng IBGS (chỉ 1 mô hình MCMC + ảnh train) — đang phát triển
-
-Yêu cầu 02/10: một phương pháp của riêng mình, không phụ thuộc IBGS. Đã thử hai hướng:
-
-**(a) BandFuse — mạng trộn warp thô của riêng mình** (warp vẫn dùng depth của IBGS). Tốt nhất ngang IBGS ở indoor
-(bonsai 34.83, counter 30.63 với cross-fitting), không vượt; hỏng ở train (phơi sáng thay đổi). Chi tiết các biến thể:
-LOSO 33.8–34.1 (bonsai); attention/residual/căn chỉnh sub-pixel/ca khó chỉ ±0.2. Học cross-fitting trên chính scene
-cho +0.6–0.9 so với LOSO — dữ liệu đúng phân bố quan trọng hơn kiến trúc. Một quan sát đẹp: cross-fitting trên bonsai
-tự học ra quy tắc gần nhị phân (tần cao tin Gaussians 1.00/1.00, ba băng thô tin ảnh thật 0.005/0.004/0.003).
-
-**(b) Band-limited warping với depth của chính MCMC** (`src/route/bandwarp.py`, hoàn toàn không IBGS). Mỗi tầng pyramid
-warp riêng, lấy evidence tần thấp, trộn tuyến tính theo tầng với trọng số fit LOSO (5 tham số):
-
-| scene | MCMC | own (LOSO, 5 trọng số) | Δ |
+| | indoor | outdoor | T&T / DB |
 |---|---|---|---|
-| bonsai / counter / kitchen / room | 32.84 / 29.48 / 32.31 / 32.38 | 33.42 / 29.93 / 32.51 / 32.73 | +0.58 / +0.45 / +0.20 / +0.35 |
-| bicycle / flowers / garden / stump / treehill | 26.18 / 22.43 / 28.20 / 27.69 / 23.36 | 26.19 / 22.51 / 28.21 / 27.69 / 23.39 | ≈ 0 |
-| train / truck / drjohnson / playroom | 22.73 / 26.44 / 29.32 / 30.07 | 22.88 / 26.51 / 29.32 / 30.09 | +0.15 / +0.07 / 0 / +0.02 |
+| support, geometry IBGS | 0.95–0.98 | 0.76–0.96 | 0.71–0.93 |
+| support, depth MCMC | 0.78–0.84 | **0.41–0.72** | 0.45–0.58 |
+| MSE tần thấp warp ÷ MCMC, ở nơi geometry IBGS hợp lệ | 0.63–1.21 | **1.22–2.17** | 0.77–1.86 |
+| lệch màu theo ảnh (gain affine, dB) | 0.1–0.4 | 0.2–1.0 | 0.2–0.9 |
+| bất đồng tần thấp giữa 2 ảnh nguồn (×1e4) | 3.7–10.9 | 8.5–19.9 | 7–84 |
+| tỉ số theo vùng gần / giữa / xa | ≈ 1 | gần tệ nhất (bicycle 4.2/3.1/2.3) | truck 3.7/2.2/1.7 |
 
-- Có tín hiệu thật ở indoor (+0.2…+0.6) nhưng **xa gate dùng IBGS** và ≈ 0 ở outdoor.
-- Nút thắt đo được: **support** — depth MCMC chỉ cho 40–55% pixel có nguồn hợp lệ ở outdoor/T&T/DB (IBGS ~85–95%).
-- Giả thuyết "nới ngưỡng depth theo tầng (τ_l ∝ 2^l)" **bị bác bỏ**: lọt điểm bị che khuất → hại (bonsai 12 view: 31.59
-  vs 32.22 khi cố định). Lệch đăng ký nhỏ thì band-limit được; che khuất thì không.
-- Prior art (rà soát 02/10): lọc theo độ bất định depth đã có (Stewart et al. EGSR 2003 — hai băng, tần thấp từ ảnh, tần
-  cao từ bản dựng khác; Brédif 2014). Phần mới khả dĩ: bản học được, nhiều băng, với render 3DGS là nguồn tần cao.
-
-**Đang làm cho phương pháp riêng:** 9 fold cross-fitting MCMC (bonsai/counter/garden × 3) để có ~4× dữ liệu huấn luyện
-cho một mạng IBR riêng; bước sau là geometry nhất quán của riêng mình để nâng support.
-
-## 5. Định vị so với related work (rà soát 01/10)
-
-| Đã có | Khác với mình |
-|---|---|
-| Deep Blending (Hedman'18): softmax theo pixel giữa render mesh và các warp, có fallback | Không theo băng tần, không dùng evidence support/disagreement |
-| BlendedMVS / Baumberg'02: tần thấp từ ảnh chụp, tần cao từ render, bộ lọc cố định | Cố định; mình học được, theo vùng, có điều kiện evidence; và dùng cho NVS |
-| HDR+ (Wiener merge theo tile × tần số, fallback về frame tham chiếu) | Gần nhất về cấu trúc. Mình là bản học được, với "frame tham chiếu" là render 3DGS |
-| IBGS / GADA: residual cộng thêm; GADA căn warp bằng deformable offset | Không có băng tần; tự nhận ảnh nguồn đem lại tần cao, ngược với đo đạc ở §3.2 |
-
-**Mới (chưa tìm thấy):**
-- Gate học được theo băng Laplacian giữa render 3DGS và evidence warp, có điều kiện trên support và disagreement.
-- Bằng chứng định lượng (phổ sai số theo lớp support) rằng ảnh nguồn đóng góp chủ yếu ở tần thấp.
-- Quy tắc closed-form rút từ mô hình lệch đăng ký, đủ để thắng IBGS.
-
-**Việc cần làm thêm:**
-1. ~~Đo σ lệch đăng ký để kiểm dự đoán tần số giao cắt~~ — đã đo (§3.2b): σ một mình không dự đoán được; phải xét tỉ số
-   hai phổ sai số.
-2. Thử gate chồng lên alignment kiểu GADA để xem hai cơ chế bổ trợ nhau không.
-3. Đọc kỹ "image-based view-dependent appearance for 3DGS" (Displays, 2026) — abstract nói có tách tần cao/thấp.
+Depth MCMC mất support ở outdoor, nhưng kể cả với geometry tốt warp vẫn kém ở tần thấp; vùng gần camera hỏng nặng nhất
+(δ ∝ Δz/z²); ảnh outdoor bất đồng nhau nhiều (lá/cỏ động, ánh sáng); và MCMC outdoor vốn đã đúng ở tần thấp.
 
 ---
 
-## 6. Đang chạy và việc tiếp
+## 6. Phương pháp riêng không dùng IBGS
 
-- **Tiến độ (16:30 UTC):** MCMC + dump hybrid xong **10/16** (bicycle, bonsai, counter, garden, kitchen, stump, train,
-  truck, cd, guitars); room đã train xong, đang dump. Đang train: lab (80%), drjohnson (46%), playroom (34%), flowers;
-  treehill còn trong hàng đợi. Ước tính đủ 16/16 sau ~2–3 giờ.
-- ⏳ Đang chạy riêng: gate LOSO-8 (8 scene benchmark đã có), ablation thêm ứng viên MCMC + affine phơi sáng (LOSO-4).
-- ⏳ Chuỗi đánh giá tự chạy khi đủ dữ liệu (`scripts/after_all_week2.sh`):
-  - gate band LOSO 13 scene;
-  - Shiny-only zero-shot;
-  - LODO;
-  - gate theo pixel (kiểu Deep Blending);
-  - 6 ablation: bỏ support / bỏ disagreement / bỏ bất đồng giữa hai mô hình / bỏ màu / chỉ {MCMC, IBGS} / chỉ {MCMC, I+r};
-  - baseline không học và phổ sai số cho 13 scene;
-  - R0 cho các scene outdoor.
-- Chi phí cần báo: FPS đo lại khi GPU rảnh; bộ nhớ = 2 mô hình Gaussian + ảnh nguồn + mạng IBGS + gate (~0.3 MB).
-- Giao thức dev-target sạch (giấu 1/8 view train, train lại MCMC/IBGS) cho bản cuối, nếu LOSO và Shiny-only giữ được kết quả.
-- Nhánh 2 (Difix): mới dựng sẵn env, **chưa chạy**; chỉ mở khi hướng 1 đã chốt.
+**BandFuse** (`src/route/bandfuse.py`) — mạng trộn từng warp nguồn theo băng tần (encoder theo nguồn, attention giữa các
+nguồn, softmax theo băng trên {render, nguồn}; tùy chọn residual, căn chỉnh sub-pixel; học LOSO / cross-fitting).
+
+| BandFuse (tốt nhất) | bonsai | counter | train | bicycle | garden |
+|---|---|---|---|---|---|
+| LOSO | 34.13 | 30.25 | 23.18 | 26.27 | 28.24 |
+| cross-fitting (dev views của chính scene) | 34.83 | 30.63 | 23.08 | 26.24 | 28.33 |
+| IBGS | 34.92 | 30.63 | 23.79 | 26.08 | 27.59 |
+
+Cross-fitting cho +0.6…0.9 so với LOSO ở indoor; trên bonsai tự học ra quy tắc gần nhị phân (tần cao tin Gaussians, ba băng
+thô tin ảnh thật). Vẫn dùng depth của IBGS để warp; hỏng ở train (phơi sáng thay đổi).
+
+**Band-limited warping với depth MCMC** (`src/route/bandwarp.py`, không IBGS): indoor +0.2…+0.6, outdoor ≈ 0. Nới ngưỡng
+depth theo tầng (τ_l ∝ 2^l) **bị bác bỏ** (lọt điểm bị che khuất). Prior art: Stewart et al. EGSR 2003, Brédif 2014.
+
+---
+
+## 7. Prior sinh ảnh và setting view xa
+
+**D0 — Difix (trọng số chính thức), split chuẩn** — PSNR toàn ảnh / vùng 0 nguồn:
+
+| | bonsai | garden | bicycle | train |
+|---|---|---|---|---|
+| render (MCMC) | 32.84 / 27.54 | 28.20 / 21.48 | 26.18 / 23.38 | 22.73 / 19.19 |
+| Difix-ref(IBGS) toàn ảnh | 30.88 / 25.58 | 25.05 / 19.65 | 24.26 / 21.51 | 22.89 / 18.95 |
+| Difix chỉ ở vùng 0 nguồn | 34.70 | 27.45 | 25.67 | 23.74 |
+
+Không phải lỗi độ phân giải (576×1024 còn tệ hơn); chỉ giữ tần thấp của Difix đỡ hại hơn nhưng vẫn dưới render.
+
+**Split giữ một cung góc** (garden; K = N/8 view liền nhau, ~39°): 3DGS 24.20 (split chuẩn 27.49), IBGS 24.06, Difix-ref
+23.12; vùng 0 nguồn tăng ~4% → 25% nhưng IBR và Difix đều không giúp. (bonsai: 3DGS 28.13 so với 32.28.)
+
+**Nerfbusters aloe** (video train/eval riêng; undistort; downscale 2; mask visibility tự cài):
+
+| | PSNR (mask) | PSNR toàn ảnh | LPIPS |
+|---|---|---|---|
+| 3DGS gốc | 12.08 | 12.06 | 0.602 |
+| IBGS | 9.57 | 8.65 | 0.690 |
+| Difix-ref(3DGS) | — | 12.30 | 0.541 |
+| Difix chỉ ở vùng 0 nguồn | — | 12.33 | 0.559 |
+
+12 view (vùng 0 nguồn 71%): render 14.85, Difix nguyên 14.72, **chỉ tần thấp của Difix 15.04–15.13**. Lưu ý 3DGS aloe thấp
+hơn nhiều so với trung bình công bố (17.66), có lệch phơi sáng giữa hai video, và mới 1 scene.
+
+**Về chưng cất (Difix3D-style):** chưng cất chỉ có nghĩa khi teacher tốt hơn student hoặc giải quyết được điều hậu xử lý
+không làm được. Ở cả ba setting đã đo, teacher (Difix) không tốt hơn render hoặc chỉ hơn +0.24 trên một scene bất thường;
+lợi ích còn lại là inference một stage (tốc độ), không đủ làm động cơ cho một paper về chất lượng ⇒ **không làm**.
+
+---
+
+## 8. Định vị so với related work (để dùng nếu quay lại hướng này)
+
+| Đã có | Liên hệ |
+|---|---|
+| Deep Blending (2018): softmax theo pixel giữa render mesh và warp, có fallback | gate theo pixel của mình gần như tương đương về PSNR |
+| BlendedMVS / Baumberg 2002 / Stewart 2003: tần thấp từ ảnh, tần cao từ mô hình, bộ lọc cố định | cùng ý tưởng tách băng |
+| HDR+ (Wiener theo tile × tần số, fallback về frame tham chiếu) | gần nhất về cấu trúc |
+| IBGS / GADA: residual cộng thêm, tự nhận ảnh nguồn đem lại tần cao | đo đạc §3.2 cho thấy ngược lại ở 5/8 scene |
+| ArtiFixer, ConFixGS, 3DGS-Enhancer: gate ảnh sinh theo opacity/confidence | chưa ai gate theo băng × support |
+
+---
+
+## 9. Câu hỏi mở cho hướng tiếp theo
+- Ở split chuẩn, dư địa còn lại nằm ở vùng không có nguồn (10–24% lỗi) và ở chất lượng mô hình explicit — cần **thông tin
+  mới** chứ không phải cách trộn tốt hơn.
+- Nếu đi hướng view xa: phải dựng đúng protocol Nerfbusters (mask chính thức với nerfacto, gsplat), tái tạo 3DGS ≈ 17.66 trên
+  12 scene trước khi so sánh; và cần một nguồn thông tin tốt hơn cả render lẫn Difix ở vùng không quan sát.
+- Các phát hiện §3 (ảnh thật chỉ có ích ở tần thấp, vùng không nguồn luôn hại, IBR sụp khi rời quỹ đạo) có thể là phần
+  phân tích/motivation của một bài khác, nhưng tự chúng chưa phải phương pháp.
